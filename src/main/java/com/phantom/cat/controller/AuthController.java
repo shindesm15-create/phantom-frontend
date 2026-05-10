@@ -16,28 +16,15 @@ public class AuthController {
         this.service = service;
     }
 
-    @PostMapping("/login")
-public String login(@RequestBody User user) {
+  
+@PostMapping("/login")
+public ResponseEntity<String> login(@RequestBody User user) {
 
-    try {
+    String result = service.login(user.getName(), user.getPassword());
 
-        if (user == null || user.getName() == null || user.getPassword() == null) {
-            return "empty";
-        }
-
-        String result = service.login(user.getName(), user.getPassword());
-
-        if (result == null) {
-            return "invalid";
-        }
-
-        return result;
-
-    } catch (Exception e) {
-        e.printStackTrace();
-        return "server error";
-    }
+    return ResponseEntity.ok(result);
 }
+   
 
     @PostMapping("/register")
     public String register(@RequestBody User user) {
