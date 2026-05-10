@@ -313,15 +313,7 @@ a:hover{
 </div>
 
 <script>
-    /* ======================
-   CONFIG
-====================== */
-
 const API_BASE = "https://phantom-backend05.onrender.com";
-
-/* ======================
-   LOGIN
-====================== */
 
 async function login() {
 
@@ -333,30 +325,34 @@ async function login() {
         return;
     }
 
-    let res = await fetch(`${API_BASE}/login`, {
+    try {
 
-        method: "POST",
+        let res = await fetch(`${API_BASE}/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: name,
+                password: password
+            })
+        });
 
-        headers: {
-            "Content-Type": "application/json"
-        },
+        let data = await res.json();  // ✅ IMPORTANT FIX
 
-        body: JSON.stringify({
-            name: name,
-            password: password
-        })
-    });
+        if (data.success === true) {
 
-    let result = await res.text();
+            localStorage.setItem("user", name);
 
-    if (result === "success") {
+            window.location.href = "/Catm.html";
 
-        localStorage.setItem("user", name);
+        } else {
+            alert(data.message || "Login failed");
+        }
 
-        window.location.href = "/Catm.html";
-
-    } else {
-        alert(result);
+    } catch (error) {
+        console.log(error);
+        alert("Server error or backend not responding");
     }
 }
 </script>
