@@ -54,25 +54,20 @@ public class CatmService {
 
     // ================= LOGIN =================
 
-    public String login(
-            String name,
-            String password) {
+   public String login(String name, String password) {
 
-        User user =
-                userRepo.findByName(name);
+    User user = userRepo.findByName(name);
 
-        if(user == null){
-            return "User not found";
-        }
-
-        if(!user.getPassword()
-                .equals(password)){
-
-            return "Wrong password";
-        }
-
-        return "success";
+    if (user == null) {
+        return "User not found";
     }
+
+    if (!user.getPassword().equals(password)) {
+        return "Wrong password";
+    }
+
+    return "success";
+}
 
     // ================= SEND MESSAGE =================
 

@@ -3,7 +3,7 @@ package com.phantom.cat.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection="users")
+@Document(collection = "users")
 public class User {
 
     @Id
@@ -11,9 +11,13 @@ public class User {
 
     private String name;
     private String password;
-     private String vname;
-    private String phone;
-    private String email;
+
+    public User() {}
+
+    public User(String name, String password) {
+        this.name = name;
+        this.password = password;
+    }
 
     public String getId() {
         return id;
@@ -37,14 +41,5 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-    public String getVname() {
-        return vname;
-    }
-    public String getPhone() {
-        return phone;
-    }
-    public String getEmail() {
-        return email;
     }
 }
