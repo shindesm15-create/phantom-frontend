@@ -1,0 +1,458 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Dark Phantom</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Poppins',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    background:
+    radial-gradient(circle at top,#2b0000 0%,#0b0b0b 40%,#000 100%);
+    color:white;
+    position:relative;
+}
+
+/* BACKGROUND GLOW */
+body::before{
+    content:"";
+    position:absolute;
+    width:500px;
+    height:500px;
+    background:rgba(255,0,0,0.15);
+    filter:blur(120px);
+    top:-100px;
+    left:-100px;
+    z-index:-1;
+}
+
+body::after{
+    content:"";
+    position:absolute;
+    width:400px;
+    height:400px;
+    background:rgba(255,0,0,0.1);
+    filter:blur(120px);
+    bottom:-100px;
+    right:-100px;
+    z-index:-1;
+}
+
+/* HEADER */
+header{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px 40px;
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:1000;
+    backdrop-filter:blur(12px);
+    background:rgba(0,0,0,0.35);
+    border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+/* LOGO AREA */
+.logo-box{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.logo{
+    height:55px;
+    filter:drop-shadow(0 0 12px red);
+    animation:logoGlow 3s infinite alternate;
+}
+
+.logo-text{
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:2px;
+    color:#fff;
+}
+
+.logo-text span{
+    color:#ff2a2a;
+}
+
+/* NAVIGATION */
+nav{
+    display:flex;
+    align-items:center;
+    gap:30px;
+}
+
+nav a{
+    color:#fff;
+    text-decoration:none;
+    font-size:15px;
+    font-weight:500;
+    position:relative;
+    transition:0.3s;
+}
+
+nav a::after{
+    content:"";
+    position:absolute;
+    width:0%;
+    height:2px;
+    background:#ff2a2a;
+    left:0;
+    bottom:-5px;
+    transition:0.4s;
+}
+
+nav a:hover{
+    color:#ff4d4d;
+}
+
+nav a:hover::after{
+    width:100%;
+}
+
+/* MENU BUTTON */
+.menu-toggle{
+    display:none;
+    font-size:30px;
+    cursor:pointer;
+    color:white;
+}
+
+/* HERO SECTION */
+.hero{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:120px 20px 50px;
+    position:relative;
+}
+
+/* HERO CONTENT */
+.hero-content{
+    max-width:700px;
+    animation:fadeUp 1.5s ease;
+}
+
+.hero img{
+    width:180px;
+    margin-bottom:20px;
+    filter:drop-shadow(0 0 25px rgba(255,0,0,0.8));
+    animation:float 4s ease-in-out infinite;
+}
+
+.hero h1{
+    font-size:70px;
+    font-weight:700;
+    letter-spacing:4px;
+    color:#ff2a2a;
+    text-shadow:0 0 15px rgba(255,0,0,0.8);
+}
+
+.hero p{
+    margin-top:15px;
+    color:#d0d0d0;
+    font-size:18px;
+    line-height:1.7;
+}
+
+/* BUTTONS */
+.hero-btns{
+    margin-top:35px;
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+.btn{
+    padding:14px 32px;
+    border-radius:50px;
+    text-decoration:none;
+    font-weight:600;
+    transition:0.4s;
+    position:relative;
+    overflow:hidden;
+}
+
+/* PRIMARY BUTTON */
+.btn-primary{
+    background:linear-gradient(45deg,#ff0000,#ff4d4d);
+    color:white;
+    box-shadow:0 0 18px rgba(255,0,0,0.4);
+}
+
+.btn-primary:hover{
+    transform:translateY(-4px) scale(1.05);
+    box-shadow:0 0 30px rgba(255,0,0,0.9);
+}
+
+/* SECOND BUTTON */
+.btn-secondary{
+    border:1px solid rgba(255,255,255,0.2);
+    background:rgba(255,255,255,0.05);
+    color:white;
+    backdrop-filter:blur(10px);
+}
+
+.btn-secondary:hover{
+    background:rgba(255,255,255,0.12);
+    transform:translateY(-4px);
+}
+
+/* FEATURES */
+.features{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:25px;
+    padding:40px;
+    margin-top:-50px;
+}
+
+.card{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:20px;
+    padding:30px;
+    backdrop-filter:blur(10px);
+    transition:0.4s;
+}
+
+.card:hover{
+    transform:translateY(-8px);
+    box-shadow:0 0 25px rgba(255,0,0,0.2);
+}
+
+.card h3{
+    color:#ff4d4d;
+    margin-bottom:10px;
+}
+
+.card p{
+    color:#cfcfcf;
+    font-size:14px;
+    line-height:1.6;
+}
+
+/* FOOTER */
+footer{
+    text-align:center;
+    padding:25px;
+    margin-top:30px;
+    color:#888;
+    font-size:14px;
+}
+
+/* ANIMATIONS */
+@keyframes float{
+    0%{
+        transform:translateY(0px);
+    }
+    50%{
+        transform:translateY(-15px);
+    }
+    100%{
+        transform:translateY(0px);
+    }
+}
+
+@keyframes fadeUp{
+    from{
+        opacity:0;
+        transform:translateY(40px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+@keyframes logoGlow{
+    from{
+        filter:drop-shadow(0 0 8px red);
+    }
+    to{
+        filter:drop-shadow(0 0 20px red);
+    }
+}
+
+/* MOBILE */
+@media(max-width:768px){
+
+    header{
+        padding:15px 20px;
+    }
+
+    .menu-toggle{
+        display:block;
+    }
+
+    nav{
+        position:absolute;
+        top:80px;
+        right:0;
+        width:100%;
+        background:#0b0b0b;
+        flex-direction:column;
+        padding:30px 0;
+        display:none;
+        border-top:1px solid rgba(255,255,255,0.1);
+    }
+
+    nav.active{
+        display:flex;
+    }
+
+    .hero h1{
+        font-size:45px;
+    }
+
+    .hero p{
+        font-size:15px;
+    }
+
+    .hero img{
+        width:140px;
+    }
+
+    .features{
+        padding:20px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header>
+
+    <div class="logo-box">
+        <img src="loder.png" class="logo">
+        <div class="logo-text">Dark <span>Phantom</span></div>
+    </div>
+
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+    <nav id="navMenu">
+        <a href="#">Home</a>
+        <a href="#">Features</a>
+        <a href="#">Gallery</a>
+        <a href="#">Contact</a>
+    </nav>
+
+</header>
+
+<!-- HERO -->
+<section class="hero">
+
+    <div class="hero-content">
+
+        <img src="loder.png" alt="logo">
+
+        <h1>DARK PHANTOM</h1>
+
+        <p>
+            Enter the world of darkness, power and mystery.
+            Experience futuristic design with premium animations,
+            glowing effects and modern UI.
+        </p>
+
+        <div class="hero-btns">
+
+            <a href="#" class="btn btn-primary" onclick="checkPassword(event)">
+                Explore Now
+            </a>
+
+            <a href="#" class="btn btn-secondary">
+                Learn More
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+
+    <div class="card">
+        <h3>⚡ Fast Experience</h3>
+        <p>
+            Smooth animations and premium responsive layout for all devices.
+        </p>
+    </div>
+
+    <div class="card">
+        <h3>🔥 Dark UI</h3>
+        <p>
+            Modern glassmorphism and glowing red effects for futuristic feel.
+        </p>
+    </div>
+
+    <div class="card">
+        <h3>🛡 Secure Access</h3>
+        <p>
+            Password protected explore button with stylish interaction.
+        </p>
+    </div>
+
+</section>
+
+<!-- FOOTER -->
+<footer>
+    © 2026 Dark Phantom | Designed By krishna
+</footer>
+
+<script>
+
+/* MOBILE MENU */
+function toggleMenu(){
+    document.getElementById("navMenu").classList.toggle("active");
+}
+
+/* PASSWORD SYSTEM */
+function checkPassword(event){
+
+    event.preventDefault();
+
+    let password = prompt("Enter Secret Password :");
+
+    if(password === "Krishna"){
+
+        alert("Access Granted 🔥");
+
+        window.location.href = "login.html";
+
+    }else if(password !== null){
+
+        alert("Wrong Password ❌");
+    }
+}
+
+</script>
+
+</body>
+</html>
+

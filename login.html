@@ -1,0 +1,367 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title> 👻 PHANTOM</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+
+<style>
+
+/* ======================
+   GLOBAL
+====================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+
+    font-family:'Poppins',sans-serif;
+
+    background:
+    radial-gradient(circle at top left,#31104d,#050505 45%),
+    radial-gradient(circle at bottom right,#4b0d74,#000000 45%);
+}
+
+/* ======================
+   BACKGROUND GLOW
+====================== */
+
+.bg{
+    position:absolute;
+    width:100%;
+    height:100%;
+
+    background:
+    radial-gradient(circle at center,
+    rgba(168,85,247,0.15),
+    transparent 60%);
+
+    filter:blur(10px);
+}
+
+/* ======================
+   LOGIN BOX
+====================== */
+
+.box{
+    position:relative;
+
+    width:360px;
+
+    padding:40px;
+
+    border-radius:28px;
+
+    background:
+    rgba(15,15,25,0.82);
+
+    border:1px solid rgba(192,132,252,0.18);
+
+    backdrop-filter:blur(25px);
+
+    box-shadow:
+    0 0 35px rgba(168,85,247,0.14);
+
+    z-index:10;
+}
+
+/* ======================
+   LOGO
+====================== */
+
+h1{
+    text-align:center;
+
+    color:#d8b4fe;
+
+    font-size:34px;
+
+    letter-spacing:3px;
+
+    margin-bottom:8px;
+
+    text-shadow:
+    0 0 18px rgba(168,85,247,0.5);
+}
+
+/* ======================
+   SUBTITLE
+====================== */
+
+.sub{
+    text-align:center;
+
+    color:#b9b9b9;
+
+    font-size:14px;
+
+    margin-bottom:30px;
+}
+
+/* ======================
+   INPUTS
+====================== */
+
+.inputBox{
+    margin-top:18px;
+}
+
+.inputBox label{
+    color:#d9d9d9;
+    font-size:14px;
+}
+
+input{
+    width:100%;
+
+    padding:15px;
+
+    margin-top:10px;
+
+    background:#1c1528;
+
+    border:none;
+
+    border-radius:16px;
+
+    color:white;
+
+    font-size:15px;
+
+    outline:none;
+
+    border:1px solid rgba(255,255,255,0.05);
+
+    transition:0.3s;
+}
+
+input:focus{
+
+    border:1px solid rgba(192,132,252,0.45);
+
+    box-shadow:
+    0 0 18px rgba(168,85,247,0.18);
+}
+
+/* ======================
+   BUTTON
+====================== */
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    margin-top:25px;
+
+    border:none;
+
+    border-radius:18px;
+
+    background:
+    linear-gradient(
+        135deg,
+        #a855f7,
+        #7c3aed
+    );
+
+    color:white;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:0.3s;
+
+    box-shadow:
+    0 0 22px rgba(168,85,247,0.22);
+}
+
+button:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:
+    0 0 30px rgba(168,85,247,0.30);
+}
+
+/* ======================
+   TEXT
+====================== */
+
+p{
+    color:#bcbcbc;
+
+    text-align:center;
+
+    margin-top:20px;
+
+    font-size:14px;
+}
+
+a{
+    color:#d8b4fe;
+
+    text-decoration:none;
+
+    font-weight:500;
+}
+
+a:hover{
+    text-decoration:underline;
+}
+
+/* ======================
+   MOBILE
+====================== */
+
+@media(max-width:700px){
+
+    .box{
+        width:92%;
+        padding:32px 24px;
+    }
+
+    body{
+        padding:15px;
+    }
+
+    h1{
+        font-size:28px;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="bg"></div>
+
+<div class="box">
+
+    <h1> 👻 PHANTOM</h1>
+
+    <div class="sub">
+        Secure Real-Time Catm
+    </div>
+
+    <!-- USERNAME -->
+
+    <div class="inputBox">
+
+        <label>Username</label>
+
+        <input
+            type="text"
+            id="name"
+            placeholder="Enter username"
+            autocomplete="off"
+        >
+
+    </div>
+
+    <!-- PASSWORD -->
+
+    <div class="inputBox">
+
+        <label>Password</label>
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Enter password"
+        >
+
+    </div>
+
+    <!-- BUTTON -->
+
+    <button onclick="login()">
+        LOGIN
+    </button>
+
+    <!-- REGISTER -->
+
+    <p>
+        No account?
+        <a href="register.html">
+            Register
+        </a>
+    </p>
+
+</div>
+
+<script>
+    /* ======================
+   CONFIG
+====================== */
+
+const API_BASE = "https://phantom-backend05.onrender.com";
+
+/* ======================
+   LOGIN
+====================== */
+
+async function login() {
+
+    let name = document.getElementById("name").value.trim();
+    let password = document.getElementById("password").value.trim();
+
+    if (!name || !password) {
+        alert("Please fill all fields");
+        return;
+    }
+
+    let res = await fetch(`${API_BASE}/login`, {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            name: name,
+            password: password
+        })
+    });
+
+    let result = await res.text();
+
+    if (result === "success") {
+
+        localStorage.setItem("user", name);
+
+        window.location.href = "/Catm.html";
+
+    } else {
+        alert(result);
+    }
+}
+</script>
+
+</body>
+</html>
+
+
