@@ -321,7 +321,7 @@ async function login() {
     let password = document.getElementById("password").value.trim();
 
     if (!name || !password) {
-        alert("Please fill all fields");
+        alert("Fill all fields");
         return;
     }
 
@@ -338,17 +338,18 @@ async function login() {
             })
         });
 
-        let result = await res.text();
+        let text = await res.text();
+        console.log("LOGIN RESPONSE:", text);
 
-        console.log("Server response:", result);
-
-        if (result === "success") {
+        if (text === "success") {
 
             localStorage.setItem("user", name);
-            window.location.href = "/Catm.html";
+
+            // IMPORTANT: correct redirect path
+            window.location.href = "Catm.html";
 
         } else {
-            alert(result || "Login failed");
+            alert("Invalid login: " + text);
         }
 
     } catch (err) {
@@ -357,7 +358,6 @@ async function login() {
     }
 }
 </script>
-   
 
 </body>
 </html>
