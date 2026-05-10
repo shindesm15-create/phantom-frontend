@@ -1,4 +1,4 @@
-const API_BASE = "https://phantom-backend05.onrender.com";
+const API_BASE = "https://phantom-backend05-1.onrender.com";
 
 let me = localStorage.getItem("user");
 let selectedUser = "";
@@ -7,6 +7,8 @@ let stompClient = null;
 let connected = false;
 
 let messageSet = new Set();
+let messageMap = new Map();
+
 let typingTimeout = null;
 
 /* ================= LOGIN CHECK ================= */
@@ -30,14 +32,25 @@ function connectSocket() {
 
         connected = true;
 
+        /* ================= MESSAGES ================= */
+
         stompClient.subscribe("/topic/messages", (msg) => {
 
             let m = JSON.parse(msg.body);
 
-            let key = m.from + m.to + m.content + (m.timestamp || "");
+            let key = m.id 
+                ? m.id 
+                : `${m.from}_${m.to}_${m.content}_${Math.floor(m.timestamp / 1000)}`;
 
             if (messageSet.has(key)) return;
+
             messageSet.add(key);
+            messageMap.set(key, true);
+
+            if (messageSet.size > 1000) {
+                messageSet.clear();
+                messageMap.clear();
+            }
 
             if (
                 (m.from === me && m.to === selectedUser) ||
@@ -46,6 +59,8 @@ function connectSocket() {
                 renderMessage(m);
             }
         });
+
+        /* ================= TYPING ================= */
 
         stompClient.subscribe("/topic/typing", (msg) => {
 
@@ -68,7 +83,7 @@ connectSocket();
 
 async function loadUsers() {
 
-    let users = await (await fetch(API_BASE + "/users")).json();
+    let users = await (await fetch(`${API_BASE}/users`)).json();
 
     let box = document.getElementById("users");
     box.innerHTML = "";
@@ -81,19 +96,10 @@ async function loadUsers() {
 
             box.innerHTML += `
                 <div class="user" onclick="openChat('${u}')">
-                    <div>
-                        <b>${u}</b>
-                    </div>
-                    <div style="
-                        width:28px;
-                        height:28px;
-                        border-radius:50%;
-                        background:#a855f7;
-                        display:flex;
-                        justify-content:center;
-                        align-items:center;
-                        font-size:12px;
-                    ">
+                    <div><b>${u}</b></div>
+                    <div style="width:28px;height:28px;border-radius:50%;
+                    background:#a855f7;display:flex;justify-content:center;
+                    align-items:center;font-size:12px;">
                         ${first}
                     </div>
                 </div>
@@ -102,7 +108,7 @@ async function loadUsers() {
     });
 }
 
-/* ================= OPEN CHAT ================= */
+/* ================= CHAT OPEN ================= */
 
 function openChat(u) {
 
@@ -123,7 +129,7 @@ function closeChat() {
     document.querySelector(".chat").classList.remove("active");
 }
 
-/* ================= SEND ================= */
+/* ================= SEND MESSAGE ================= */
 
 function send() {
 
@@ -132,12 +138,17 @@ function send() {
 
     if (!content || !selectedUser) return;
 
-    stompClient.send("/app/send", {}, JSON.stringify({
+    if (!stompClient || !connected) return;
+
+    let msg = {
         from: me,
         to: selectedUser,
         content: content,
-        timestamp: Date.now()
-    }));
+        timestamp: Date.now(),
+        id: crypto.randomUUID()
+    };
+
+    stompClient.send("/app/send", {}, JSON.stringify(msg));
 
     input.value = "";
     sendTyping(false);
@@ -163,7 +174,7 @@ document.getElementById("msg").addEventListener("input", () => {
 
 function sendTyping(status) {
 
-    if (!selectedUser) return;
+    if (!selectedUser || !stompClient || !connected) return;
 
     stompClient.send("/app/typing", {}, JSON.stringify({
         from: me,
@@ -172,14 +183,14 @@ function sendTyping(status) {
     }));
 }
 
-/* ================= MESSAGES ================= */
+/* ================= LOAD MESSAGES ================= */
 
 async function loadMessages() {
 
     if (!selectedUser) return;
 
     let res = await fetch(
-        API_BASE + `/messages?user1=${me}&user2=${selectedUser}`
+        `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
     );
 
     let data = await res.json();
@@ -190,7 +201,7 @@ async function loadMessages() {
     data.forEach(renderMessage);
 }
 
-/* ================= RENDER ================= */
+/* ================= RENDER MESSAGE ================= */
 
 function renderMessage(m) {
 
@@ -202,7 +213,7 @@ function renderMessage(m) {
 
     if (m.timestamp) {
         let d = new Date(m.timestamp);
-        time = d.getHours() + ":" + d.getMinutes();
+        time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
 
     box.innerHTML += `
@@ -215,6 +226,6 @@ function renderMessage(m) {
     box.scrollTop = box.scrollHeight;
 }
 
-/* ================= AUTO REFRESH ================= */
+/* ================= AUTO REFRESH USERS ================= */
 
 setInterval(loadUsers, 4000);
