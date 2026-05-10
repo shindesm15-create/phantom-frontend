@@ -7,9 +7,9 @@ public class Catm {
     private String content;
     private String reply;
     private boolean temp;
-    private long seentime;
-    private String status;
+    private long seenTime;
     private long timestamp;
+    private String status;
 
     public String getFrom() {
         return from;
@@ -34,37 +34,44 @@ public class Catm {
     public void setContent(String content) {
         this.content = content;
     }
+
     public String getReply() {
         return reply;
     }
+
     public void setReply(String reply) {
         this.reply = reply;
     }
+
     public boolean isTemp() {
         return temp;
     }
+
     public void setTemp(boolean temp) {
         this.temp = temp;
     }
 
     public long getSeenTime() {
-         return seentime;
+        return seenTime;
     }
+
     public void setSeenTime(long seenTime) {
-        this.seentime = seenTime;
+        this.seenTime = seenTime;
     }
-    public long getTimeStamp() {
+
+    public long getTimestamp() {
         return timestamp;
     }
-    public  void setTimeStamp(long timestamp) {
+
+    public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
     }
 
     public String getStatus() {
         return status;
     }
+
     public void setStatus(String status) {
         this.status = status;
     }
-
 }

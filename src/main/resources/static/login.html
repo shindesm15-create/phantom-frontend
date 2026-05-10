@@ -313,47 +313,52 @@ a:hover{
 </div>
 
 <script>
+    /* ======================
+   CONFIG
+====================== */
+
+const API_BASE = "https://phantom-backend05.onrender.com";
 
 /* ======================
    LOGIN
 ====================== */
 
-async function login(){
+async function login() {
 
-    let name =
-    document.getElementById("name").value;
+    let name = document.getElementById("name").value.trim();
+    let password = document.getElementById("password").value.trim();
 
-    let password =
-    document.getElementById("password").value;
+    if (!name || !password) {
+        alert("Please fill all fields");
+        return;
+    }
 
-    let res = await fetch("/login",{
+    let res = await fetch(`${API_BASE}/login`, {
 
-        method:"POST",
+        method: "POST",
 
-        headers:{
-            "Content-Type":"application/json"
+        headers: {
+            "Content-Type": "application/json"
         },
 
-        body:JSON.stringify({
-            name:name,
-            password:password
+        body: JSON.stringify({
+            name: name,
+            password: password
         })
     });
 
     let result = await res.text();
 
-    if(result === "success"){
+    if (result === "success") {
 
-        localStorage.setItem("user",name);
+        localStorage.setItem("user", name);
 
         window.location.href = "/Catm.html";
 
-    }else{
-
+    } else {
         alert(result);
     }
 }
-
 </script>
 
 </body>

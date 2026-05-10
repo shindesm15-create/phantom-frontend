@@ -5,23 +5,20 @@ import com.phantom.cat.service.CatmService;
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-
 import org.springframework.stereotype.Controller;
 
 @Controller
-public class CatmScoketController {
+public class CatmSocketController {
 
     private final CatmService service;
 
-    public CatmScoketController(
-            CatmService service){
-
+    public CatmSocketController(CatmService service) {
         this.service = service;
     }
 
     @MessageMapping("/send")
     @SendTo("/topic/messages")
-    public Catm send(Catm message){
+    public Catm send(Catm message) {
 
         service.sendMessage(
                 message.getFrom(),
@@ -29,6 +26,13 @@ public class CatmScoketController {
                 message.getContent()
         );
 
+        message.setStatus("sent");
+        return message;
+    }
+
+    @MessageMapping("/typing")
+    @SendTo("/topic/typing")
+    public Catm typing(Catm message) {
         return message;
     }
 }

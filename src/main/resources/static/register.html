@@ -333,28 +333,36 @@ a:hover{
 <script>
 
 /* ======================
+   CONFIG
+====================== */
+
+const API_BASE = "https://phantom-backend05.onrender.com";
+
+/* ======================
    REGISTER
 ====================== */
 
-async function registerUser(){
+async function registerUser() {
 
-    let name =
-    document.getElementById("name").value;
+    let name = document.getElementById("name").value.trim();
+    let password = document.getElementById("password").value.trim();
 
-    let password =
-    document.getElementById("password").value;
+    if (!name || !password) {
+        alert("Please fill all fields");
+        return;
+    }
 
-    let res = await fetch("/register",{
+    let res = await fetch(`${API_BASE}/register`, {
 
-        method:"POST",
+        method: "POST",
 
-        headers:{
-            "Content-Type":"application/json"
+        headers: {
+            "Content-Type": "application/json"
         },
 
-        body:JSON.stringify({
-            name:name,
-            password:password
+        body: JSON.stringify({
+            name: name,
+            password: password
         })
     });
 
@@ -362,8 +370,7 @@ async function registerUser(){
 
     alert(result);
 
-    if(result === "User created"){
-
+    if (result === "User created") {
         window.location.href = "/login.html";
     }
 }
