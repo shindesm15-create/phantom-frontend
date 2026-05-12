@@ -336,7 +336,13 @@ async function login() {
             return;
         }
 
-        console.log("LOGIN START");
+        /* WAKE RENDER */
+
+        await fetch(
+            API_BASE + "/users"
+        );
+
+        console.log("BACKEND AWAKE");
 
         let response = await fetch(
             API_BASE + "/login",
@@ -344,27 +350,35 @@ async function login() {
                 method: "POST",
 
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type":
+                    "application/json"
                 },
 
                 body: JSON.stringify({
+
                     name: name,
+
                     password: password
                 })
             }
         );
 
-        console.log("FETCH DONE");
-
-        let text = await response.text();
+        let text =
+            await response.text();
 
         console.log("SERVER:", text);
 
-        if (text.trim() === "success") {
+        if (
+            text.trim() === "success"
+        ) {
 
-            localStorage.setItem("user", name);
+            localStorage.setItem(
+                "user",
+                name
+            );
 
-            window.location.href = "Catm.html";
+            window.location.href =
+                "Catm.html";
 
         } else {
 
@@ -373,12 +387,16 @@ async function login() {
 
     } catch (e) {
 
-        console.log("LOGIN ERROR:", e);
+        console.log(
+            "LOGIN ERROR:",
+            e
+        );
 
-        alert("Backend not responding");
+        alert(
+            "Backend waking up... try again in 10 seconds"
+        );
     }
 }
-
 
 </script>
 

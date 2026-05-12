@@ -39,9 +39,13 @@ window.onload = () => {
             "Logged as: " + me;
     }
 
-    connectSocket();
+    fetch(API_BASE + "/users")
+    .then(() => {
 
-    loadUsers();
+        connectSocket();
+
+        loadUsers();
+    });
 };
 
 /* =========================
@@ -54,10 +58,10 @@ function connectSocket() {
 
         console.log("CONNECTING SOCKET...");
 
-        const socket =
-            new SockJS(
-                API_BASE + "/chat"
-            );
+       const socket =
+    new SockJS(
+        API_BASE + "/chat/"
+    );
 
         stompClient =
             Stomp.over(socket);
