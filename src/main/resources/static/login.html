@@ -313,41 +313,69 @@ a:hover{
 </div>
 
 <script>
-    /* ======================
-   CONFIG
-====================== */
-
-const API_BASE = "https://phantom-backend05-1.onrender.com";
-
-/* ======================
-   LOGIN
-====================== */
+  const API_BASE =
+    "https://phantom-backend05-1.onrender.com";
 
 async function login() {
 
-    let name = document.getElementById("name").value.trim();
-    let password = document.getElementById("password").value.trim();
+    try {
 
-    let res = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            name: name,
-            password: password
-        })
-    });
+        let name =
+            document.getElementById("name")
+            .value
+            .trim();
 
-    let text = await res.text();
+        let password =
+            document.getElementById("password")
+            .value
+            .trim();
 
-    console.log("LOGIN RESPONSE:", text);
+        if (!name || !password) {
 
-    if (text === "success") {
-        localStorage.setItem("user", name);
-        window.location.href = "./Catm.html";
-    } else {
-        alert(text);
+            alert("Enter username and password");
+            return;
+        }
+
+        console.log("LOGIN START");
+
+        let response = await fetch(
+            API_BASE + "/login",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    name: name,
+                    password: password
+                })
+            }
+        );
+
+        console.log("FETCH DONE");
+
+        let text = await response.text();
+
+        console.log("SERVER:", text);
+
+        if (text.trim() === "success") {
+
+            localStorage.setItem("user", name);
+
+            window.location.href = "Catm.html";
+
+        } else {
+
+            alert(text);
+        }
+
+    } catch (e) {
+
+        console.log("LOGIN ERROR:", e);
+
+        alert("Backend not responding");
     }
 }
 
