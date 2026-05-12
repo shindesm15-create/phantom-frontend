@@ -5,10 +5,13 @@ const API_BASE =
    USER
 ========================= */
 
-let me = localStorage.getItem("user");
+let me =
+localStorage.getItem("user");
 
 if (!me) {
-    window.location.href = "login.html";
+
+    window.location.href =
+    "login.html";
 }
 
 /* =========================
@@ -25,13 +28,15 @@ let typingTimeout = null;
 
 /* Prevent repeated messages */
 
-let renderedMessages = new Set();
+let renderedMessages =
+new Set();
 
-let loadedMessageIds = new Set();
+let loadedMessageIds =
+new Set();
 
 /* Online users */
 
-let onlineUsers = new Set();
+let onlineUsers = [];
 
 /* =========================
    START APP
@@ -40,15 +45,15 @@ let onlineUsers = new Set();
 window.onload = async () => {
 
     let meBox =
-        document.getElementById("me");
+    document.getElementById("me");
 
     if (meBox) {
 
         meBox.innerText =
-            "Logged as: " + me;
+        "Logged as: " + me;
     }
 
-    /* Wake Render backend */
+    /* Wake backend */
 
     try {
 
@@ -56,7 +61,7 @@ window.onload = async () => {
             API_BASE + "/users"
         );
 
-    } catch (e) {
+    } catch(e) {
 
         console.log(
             "Wake backend error:",
@@ -64,9 +69,23 @@ window.onload = async () => {
         );
     }
 
+    /* SET ONLINE */
+
+    fetch(
+
+        API_BASE +
+        "/online?user=" + me,
+
+        {
+            method:"POST"
+        }
+    );
+
     setTimeout(() => {
 
         connectSocket();
+
+        loadOnlineUsers();
 
         loadUsers();
 
@@ -81,21 +100,25 @@ function connectSocket() {
 
     if (connected) return;
 
-    console.log("Connecting socket...");
+    console.log(
+        "Connecting socket..."
+    );
 
     try {
 
         const socket =
-            new SockJS(
-                API_BASE + "/chat"
-            );
+
+        new SockJS(
+            API_BASE + "/chat"
+        );
 
         stompClient =
-            Stomp.over(socket);
+        Stomp.over(socket);
 
         stompClient.debug = null;
 
         stompClient.connect(
+
             {},
 
             () => {
@@ -106,31 +129,26 @@ function connectSocket() {
                     "Socket connected"
                 );
 
-                /* ONLINE */
-
-                stompClient.send(
-                    "/app/online",
-                    {},
-                    me
-                );
-
                 /* RECEIVE MESSAGE */
 
                 stompClient.subscribe(
+
                     "/topic/messages",
 
                     (msg) => {
 
                         let m =
-                            JSON.parse(
-                                msg.body
-                            );
+                        JSON.parse(
+                            msg.body
+                        );
 
                         let key =
+
                             m.id ||
+
                             `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
 
-                        /* Prevent duplicates */
+                        /* Prevent repeat */
 
                         if (
                             renderedMessages.has(key)
@@ -138,7 +156,9 @@ function connectSocket() {
                             return;
                         }
 
-                        renderedMessages.add(key);
+                        renderedMessages.add(
+                            key
+                        );
 
                         if (
 
@@ -163,19 +183,21 @@ function connectSocket() {
                 /* TYPING */
 
                 stompClient.subscribe(
+
                     "/topic/typing",
 
                     (msg) => {
 
                         let data =
-                            JSON.parse(
-                                msg.body
-                            );
+                        JSON.parse(
+                            msg.body
+                        );
 
                         let typingBox =
-                            document.getElementById(
-                                "typing"
-                            );
+
+                        document.getElementById(
+                            "typing"
+                        );
 
                         if (
 
@@ -186,28 +208,10 @@ function connectSocket() {
 
                             typingBox.innerText =
 
-                                data.isTyping
-                                ? "typing..."
-                                : "";
+                            data.isTyping
+                            ? "typing..."
+                            : "";
                         }
-                    }
-                );
-
-                /* ONLINE USERS */
-
-                stompClient.subscribe(
-                    "/topic/online",
-
-                    (msg) => {
-
-                        onlineUsers =
-                            new Set(
-                                JSON.parse(
-                                    msg.body
-                                )
-                            );
-
-                        loadUsers();
                     }
                 );
             },
@@ -221,7 +225,7 @@ function connectSocket() {
                     err
                 );
 
-                /* Auto reconnect */
+                /* reconnect */
 
                 setTimeout(() => {
 
@@ -231,7 +235,7 @@ function connectSocket() {
             }
         );
 
-    } catch (e) {
+    } catch(e) {
 
         console.log(
             "Socket error:",
@@ -247,6 +251,33 @@ function connectSocket() {
 }
 
 /* =========================
+   LOAD ONLINE USERS
+========================= */
+
+async function loadOnlineUsers() {
+
+    try {
+
+        let res =
+
+        await fetch(
+            API_BASE +
+            "/online-users"
+        );
+
+        onlineUsers =
+        await res.json();
+
+    } catch(e) {
+
+        console.log(
+            "Online users error:",
+            e
+        );
+    }
+}
+
+/* =========================
    LOAD USERS
 ========================= */
 
@@ -255,17 +286,19 @@ async function loadUsers() {
     try {
 
         let res =
-            await fetch(
-                API_BASE + "/users"
-            );
+
+        await fetch(
+            API_BASE + "/users"
+        );
 
         let users =
-            await res.json();
+        await res.json();
 
         let box =
-            document.getElementById(
-                "users"
-            );
+
+        document.getElementById(
+            "users"
+        );
 
         if (!box) return;
 
@@ -276,16 +309,19 @@ async function loadUsers() {
             if (username === me)
                 return;
 
-            /* TEMP ONLINE */
+            let online =
 
-            let online = true;
+            onlineUsers.includes(
+                username
+            );
 
             let div =
-                document.createElement(
-                    "div"
-                );
+            document.createElement(
+                "div"
+            );
 
-            div.className = "user";
+            div.className =
+            "user";
 
             div.onclick = () => {
 
@@ -351,7 +387,7 @@ async function loadUsers() {
             box.appendChild(div);
         });
 
-    } catch (e) {
+    } catch(e) {
 
         console.log(
             "Load users error:",
@@ -368,47 +404,30 @@ function openChat(username) {
 
     selectedUser = username;
 
-    let chatWith =
-        document.getElementById(
-            "chatWith"
-        );
+    document.getElementById(
+        "chatWith"
+    ).innerText = username;
 
-    if (chatWith) {
+    document.getElementById(
+        "avatarBox"
+    ).innerText =
 
-        chatWith.innerText =
-            username;
-    }
+    username.charAt(0)
+    .toUpperCase();
 
-    let avatar =
-        document.getElementById(
-            "avatarBox"
-        );
-
-    if (avatar) {
-
-        avatar.innerText =
-            username.charAt(0)
-            .toUpperCase();
-    }
-
-    let chat =
-        document.querySelector(
-            ".chat"
-        );
-
-    if (chat) {
-
-        chat.classList.add(
-            "active"
-        );
-    }
+    document.querySelector(
+        ".chat"
+    ).classList.add(
+        "active"
+    );
 
     /* Hide sidebar mobile */
 
     let sidebar =
-        document.querySelector(
-            ".sidebar"
-        );
+
+    document.querySelector(
+        ".sidebar"
+    );
 
     if (
 
@@ -418,20 +437,14 @@ function openChat(username) {
     ) {
 
         sidebar.style.display =
-            "none";
+        "none";
     }
 
     loadMessages();
 
-    let input =
-        document.getElementById(
-            "msg"
-        );
-
-    if (input) {
-
-        input.focus();
-    }
+    document.getElementById(
+        "msg"
+    ).focus();
 }
 
 /* =========================
@@ -440,27 +453,22 @@ function openChat(username) {
 
 function closeChat() {
 
-    let chat =
-        document.querySelector(
-            ".chat"
-        );
-
-    if (chat) {
-
-        chat.classList.remove(
-            "active"
-        );
-    }
+    document.querySelector(
+        ".chat"
+    ).classList.remove(
+        "active"
+    );
 
     let sidebar =
-        document.querySelector(
-            ".sidebar"
-        );
+
+    document.querySelector(
+        ".sidebar"
+    );
 
     if (sidebar) {
 
         sidebar.style.display =
-            "block";
+        "block";
     }
 }
 
@@ -471,14 +479,15 @@ function closeChat() {
 function send() {
 
     let input =
-        document.getElementById(
-            "msg"
-        );
+
+    document.getElementById(
+        "msg"
+    );
 
     if (!input) return;
 
     let content =
-        input.value.trim();
+    input.value.trim();
 
     if (!content) return;
 
@@ -512,8 +521,11 @@ function send() {
     };
 
     stompClient.send(
+
         "/app/send",
+
         {},
+
         JSON.stringify(msg)
     );
 
@@ -527,18 +539,21 @@ function send() {
 ========================= */
 
 document.addEventListener(
+
     "DOMContentLoaded",
 
     () => {
 
         let input =
-            document.getElementById(
-                "msg"
-            );
+
+        document.getElementById(
+            "msg"
+        );
 
         if (!input) return;
 
         input.addEventListener(
+
             "keypress",
 
             (e) => {
@@ -553,6 +568,7 @@ document.addEventListener(
         );
 
         input.addEventListener(
+
             "input",
 
             () => {
@@ -564,11 +580,12 @@ document.addEventListener(
                 );
 
                 typingTimeout =
-                    setTimeout(() => {
 
-                        sendTyping(false);
+                setTimeout(() => {
 
-                    }, 1000);
+                    sendTyping(false);
+
+                }, 1000);
             }
         );
     }
@@ -580,12 +597,16 @@ document.addEventListener(
 
 function sendTyping(status) {
 
-    if (!selectedUser) return;
+    if (!selectedUser)
+        return;
 
-    if (!connected) return;
+    if (!connected)
+        return;
 
     stompClient.send(
+
         "/app/typing",
+
         {},
 
         JSON.stringify({
@@ -605,23 +626,26 @@ function sendTyping(status) {
 
 async function loadMessages() {
 
-    if (!selectedUser) return;
+    if (!selectedUser)
+        return;
 
     try {
 
         let res =
-            await fetch(
 
-                `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
-            );
+        await fetch(
+
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+        );
 
         let data =
-            await res.json();
+        await res.json();
 
         let box =
-            document.getElementById(
-                "messages"
-            );
+
+        document.getElementById(
+            "messages"
+        );
 
         if (!box) return;
 
@@ -630,7 +654,9 @@ async function loadMessages() {
         data.forEach(m => {
 
             let key =
+
                 m.id ||
+
                 `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
 
             /* Prevent reload duplicates */
@@ -641,14 +667,18 @@ async function loadMessages() {
                 return;
             }
 
-            loadedMessageIds.add(key);
+            loadedMessageIds.add(
+                key
+            );
 
-            renderedMessages.add(key);
+            renderedMessages.add(
+                key
+            );
 
             renderMessage(m);
         });
 
-    } catch (e) {
+    } catch(e) {
 
         console.log(
             "Load messages error:",
@@ -664,23 +694,24 @@ async function loadMessages() {
 function renderMessage(m) {
 
     let box =
-        document.getElementById(
-            "messages"
-        );
+
+    document.getElementById(
+        "messages"
+    );
 
     if (!box) return;
 
     let mine =
-        m.from === me;
+    m.from === me;
 
     let time = "";
 
     if (m.timestamp) {
 
         let d =
-            new Date(
-                m.timestamp
-            );
+        new Date(
+            m.timestamp
+        );
 
         time =
 
@@ -717,7 +748,7 @@ function renderMessage(m) {
     `;
 
     box.scrollTop =
-        box.scrollHeight;
+    box.scrollHeight;
 }
 
 /* =========================
@@ -726,6 +757,27 @@ function renderMessage(m) {
 
 setInterval(() => {
 
+    loadOnlineUsers();
+
     loadUsers();
 
 }, 5000);
+
+/* =========================
+   OFFLINE
+========================= */
+
+window.addEventListener(
+
+    "beforeunload",
+
+    () => {
+
+        navigator.sendBeacon(
+
+            API_BASE +
+
+            "/offline?user=" + me
+        );
+    }
+);
