@@ -299,9 +299,22 @@ a:hover{
 
     <!-- BUTTON -->
 
-    <button onclick="login()">
-        LOGIN
-    </button>
+    <button
+    id="loginBtn"
+    onclick="login()"
+>
+    LOGIN
+</button>
+
+   <div
+    id="status"
+    style="
+        color:#d8b4fe;
+        text-align:center;
+        margin-top:15px;
+        font-size:14px;
+    "
+></div>
 
     <!-- REGISTER -->
 
@@ -315,39 +328,111 @@ a:hover{
 </div>
 
 <script>
-  const API_BASE =
-    "https://phantom-backend05-1.onrender.com";
+
+const API_BASE =
+"https://phantom-backend05-1.onrender.com";
+
+/* =========================
+   WAKE SERVER
+========================= */
+
+async function wakeServer() {
+
+    try {
+
+        let status =
+        document.getElementById("status");
+
+        if (status) {
+
+            status.innerText =
+            "Starting server...";
+        }
+
+        /* Wake Render */
+
+        await fetch(
+            API_BASE + "/users"
+        );
+
+        /* small delay */
+
+        await new Promise(resolve =>
+            setTimeout(resolve, 4000)
+        );
+
+        if (status) {
+
+            status.innerText =
+            "";
+        }
+
+        return true;
+
+    } catch(e) {
+
+        console.log(
+            "Wake server error:",
+            e
+        );
+
+        return false;
+    }
+}
+
+/* =========================
+   LOGIN
+========================= */
 
 async function login() {
 
     try {
 
         let name =
-            document.getElementById("name")
-            .value
-            .trim();
+        document.getElementById("name")
+        .value
+        .trim();
 
         let password =
-            document.getElementById("password")
-            .value
-            .trim();
+        document.getElementById("password")
+        .value
+        .trim();
 
         if (!name || !password) {
 
-            alert("Enter username and password");
+            alert(
+                "Enter username and password"
+            );
+
             return;
         }
 
-        /* WAKE RENDER */
-
-        await fetch(
-            API_BASE + "/users"
+        let btn =
+        document.getElementById(
+            "loginBtn"
         );
 
-        console.log("BACKEND AWAKE");
+        if (btn) {
 
-        let response = await fetch(
+            btn.innerText =
+            "Please wait...";
+
+            btn.disabled = true;
+        }
+
+        /* WAKE SERVER FIRST */
+
+        await wakeServer();
+
+        console.log(
+            "LOGIN START"
+        );
+
+        let response =
+        await fetch(
+
             API_BASE + "/login",
+
             {
                 method: "POST",
 
@@ -366,9 +451,12 @@ async function login() {
         );
 
         let text =
-            await response.text();
+        await response.text();
 
-        console.log("SERVER:", text);
+        console.log(
+            "SERVER:",
+            text
+        );
 
         if (
             text.trim() === "success"
@@ -380,14 +468,14 @@ async function login() {
             );
 
             window.location.href =
-                "Catm.html";
+            "Catm.html";
 
         } else {
 
             alert(text);
         }
 
-    } catch (e) {
+    } catch(e) {
 
         console.log(
             "LOGIN ERROR:",
@@ -395,12 +483,29 @@ async function login() {
         );
 
         alert(
-            "Backend waking up... try again in 10 seconds"
+            "Backend not responding"
         );
+    }
+
+    finally {
+
+        let btn =
+        document.getElementById(
+            "loginBtn"
+        );
+
+        if (btn) {
+
+            btn.innerText =
+            "LOGIN";
+
+            btn.disabled = false;
+        }
     }
 }
 
 </script>
+
 
 </body>
 </html>
