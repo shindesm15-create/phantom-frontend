@@ -1,220 +1,545 @@
-const API_BASE = "https://phantom-backend05.onrender.com";
+const API_BASE =
+"https://phantom-backend05-1.onrender.com";
+
+/* =========================
+   USER
+========================= */
 
 let me = localStorage.getItem("user");
-let selectedUser = "";
-
-let stompClient = null;
-let connected = false;
-
-let messageSet = new Set();
-let typingTimeout = null;
-
-/* ================= LOGIN CHECK ================= */
 
 if (!me) {
     window.location.href = "login.html";
 }
 
-document.getElementById("me").innerText = "Logged as: " + me;
+/* =========================
+   GLOBALS
+========================= */
 
-/* ================= SOCKET ================= */
+let selectedUser = "";
+
+let stompClient = null;
+
+let connected = false;
+
+let typingTimeout = null;
+
+/* Prevent repeated messages */
+
+let renderedMessages = new Set();
+
+/* Online users */
+
+let onlineUsers = new Set();
+
+/* =========================
+   START
+========================= */
+
+window.onload = async () => {
+
+    document.getElementById("me")
+    .innerText = "Logged as: " + me;
+
+    /* Wake backend first */
+
+    try {
+        await fetch(API_BASE + "/users");
+    } catch(e) {
+        console.log(e);
+    }
+
+    setTimeout(() => {
+
+        connectSocket();
+
+        loadUsers();
+
+    }, 2000);
+};
+
+/* =========================
+   SOCKET
+========================= */
 
 function connectSocket() {
 
     if (connected) return;
 
-    let socket = new SockJS(API_BASE + "/chat");
-    stompClient = Stomp.over(socket);
+    console.log("Connecting socket...");
 
-    stompClient.connect({}, () => {
+    const socket =
+        new SockJS(API_BASE + "/chat");
 
-        connected = true;
+    stompClient =
+        Stomp.over(socket);
 
-        stompClient.subscribe("/topic/messages", (msg) => {
+    stompClient.debug = null;
 
-            let m = JSON.parse(msg.body);
+    stompClient.connect(
+        {},
+        () => {
 
-            let key = m.from + m.to + m.content + (m.timestamp || "");
+            connected = true;
 
-            if (messageSet.has(key)) return;
-            messageSet.add(key);
+            console.log("Socket connected");
 
-            if (
-                (m.from === me && m.to === selectedUser) ||
-                (m.from === selectedUser && m.to === me)
-            ) {
-                renderMessage(m);
-            }
-        });
+            /* USER ONLINE */
 
-        stompClient.subscribe("/topic/typing", (msg) => {
+            stompClient.send(
+                "/app/online",
+                {},
+                me
+            );
 
-            let data = JSON.parse(msg.body);
+            /* RECEIVE MESSAGE */
 
-            let box = document.getElementById("typing");
+            stompClient.subscribe(
+                "/topic/messages",
+                (msg) => {
 
-            if (box && data.from === selectedUser && data.to === me) {
-                box.innerText = data.isTyping ? "typing..." : "";
-            }
-        });
+                    let m =
+                        JSON.parse(msg.body);
 
-        loadUsers();
-    });
+                    let key =
+                        m.id ||
+                        `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+                    /* Prevent repeat */
+
+                    if (
+                        renderedMessages.has(key)
+                    ) {
+                        return;
+                    }
+
+                    renderedMessages.add(key);
+
+                    if (
+                        (m.from === me &&
+                         m.to === selectedUser)
+                        ||
+                        (m.from === selectedUser &&
+                         m.to === me)
+                    ) {
+                        renderMessage(m);
+                    }
+                }
+            );
+
+            /* TYPING */
+
+            stompClient.subscribe(
+                "/topic/typing",
+                (msg) => {
+
+                    let data =
+                        JSON.parse(msg.body);
+
+                    let typing =
+                        document.getElementById("typing");
+
+                    if (
+                        data.from === selectedUser &&
+                        data.to === me
+                    ) {
+
+                        typing.innerText =
+                            data.isTyping
+                            ? "typing..."
+                            : "";
+                    }
+                }
+            );
+
+            /* ONLINE USERS */
+
+            stompClient.subscribe(
+                "/topic/online",
+                (msg) => {
+
+                    onlineUsers =
+                        new Set(
+                            JSON.parse(msg.body)
+                        );
+
+                    loadUsers();
+                }
+            );
+        },
+
+        (err) => {
+
+            connected = false;
+
+            console.log(
+                "Socket failed:",
+                err
+            );
+
+            /* reconnect */
+
+            setTimeout(() => {
+
+                connectSocket();
+
+            }, 3000);
+        }
+    );
 }
 
-connectSocket();
-
-/* ================= USERS ================= */
+/* =========================
+   LOAD USERS
+========================= */
 
 async function loadUsers() {
 
-    let users = await (await fetch(API_BASE + "/users")).json();
+    try {
 
-    let box = document.getElementById("users");
-    box.innerHTML = "";
+        let res =
+            await fetch(
+                API_BASE + "/users"
+            );
 
-    users.forEach(u => {
+        let users =
+            await res.json();
 
-        if (u !== me) {
+        let box =
+            document.getElementById("users");
 
-            let first = u.charAt(0).toUpperCase();
+        box.innerHTML = "";
 
-            box.innerHTML += `
-                <div class="user" onclick="openChat('${u}')">
+        users.forEach(username => {
+
+            if (username === me) return;
+
+            let online =
+                onlineUsers.has(username);
+
+            let div =
+                document.createElement("div");
+
+            div.className = "user";
+
+            div.onclick = () => {
+                openChat(username);
+            };
+
+            div.innerHTML = `
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    width:100%;
+                ">
+
                     <div>
-                        <b>${u}</b>
+
+                        <b>${username}</b>
+
+                        <div style="
+                            font-size:12px;
+                            margin-top:4px;
+                            color:${
+                                online
+                                ? '#4ade80'
+                                : '#999'
+                            };
+                        ">
+
+                            ${
+                                online
+                                ? 'online'
+                                : 'offline'
+                            }
+
+                        </div>
+
                     </div>
+
                     <div style="
-                        width:28px;
-                        height:28px;
+                        width:10px;
+                        height:10px;
                         border-radius:50%;
-                        background:#a855f7;
-                        display:flex;
-                        justify-content:center;
-                        align-items:center;
-                        font-size:12px;
-                    ">
-                        ${first}
-                    </div>
+                        background:${
+                            online
+                            ? '#4ade80'
+                            : '#666'
+                        };
+                    "></div>
+
                 </div>
             `;
-        }
-    });
+
+            box.appendChild(div);
+        });
+
+    } catch (e) {
+
+        console.log(
+            "Load users error:",
+            e
+        );
+    }
 }
 
-/* ================= OPEN CHAT ================= */
+/* =========================
+   OPEN CHAT
+========================= */
 
-function openChat(u) {
+function openChat(username) {
 
-    selectedUser = u;
+    selectedUser = username;
 
-    document.getElementById("chatWith").innerText = u;
+    document.getElementById(
+        "chatWith"
+    ).innerText = username;
 
-    document.querySelector(".chat").classList.add("active");
+    document.getElementById(
+        "avatarBox"
+    ).innerText =
+        username.charAt(0)
+        .toUpperCase();
+
+    document.querySelector(
+        ".chat"
+    ).classList.add("active");
 
     loadMessages();
 
-    document.getElementById("msg").focus();
+    document.getElementById(
+        "msg"
+    ).focus();
 }
 
-/* ================= CLOSE CHAT ================= */
+/* =========================
+   CLOSE CHAT
+========================= */
 
 function closeChat() {
-    document.querySelector(".chat").classList.remove("active");
+
+    document.querySelector(
+        ".chat"
+    ).classList.remove("active");
 }
 
-/* ================= SEND ================= */
+/* =========================
+   SEND MESSAGE
+========================= */
 
 function send() {
 
-    let input = document.getElementById("msg");
-    let content = input.value.trim();
+    let input =
+        document.getElementById("msg");
 
-    if (!content || !selectedUser) return;
+    let content =
+        input.value.trim();
 
-    stompClient.send("/app/send", {}, JSON.stringify({
+    if (!content) return;
+
+    if (!selectedUser) {
+
+        alert("Select user");
+
+        return;
+    }
+
+    if (!connected) {
+
+        alert("Socket not connected");
+
+        return;
+    }
+
+    let msg = {
+
+        id: crypto.randomUUID(),
+
         from: me,
+
         to: selectedUser,
+
         content: content,
+
         timestamp: Date.now()
-    }));
+    };
+
+    stompClient.send(
+        "/app/send",
+        {},
+        JSON.stringify(msg)
+    );
 
     input.value = "";
+
     sendTyping(false);
 }
 
-/* ENTER SEND */
-document.getElementById("msg").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") send();
-});
+/* =========================
+   ENTER SEND
+========================= */
 
-/* ================= TYPING ================= */
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-document.getElementById("msg").addEventListener("input", () => {
+        let input =
+            document.getElementById("msg");
 
-    sendTyping(true);
+        input.addEventListener(
+            "keypress",
+            (e) => {
 
-    clearTimeout(typingTimeout);
+                if (e.key === "Enter") {
+                    send();
+                }
+            }
+        );
 
-    typingTimeout = setTimeout(() => {
-        sendTyping(false);
-    }, 1000);
-});
+        input.addEventListener(
+            "input",
+            () => {
+
+                sendTyping(true);
+
+                clearTimeout(
+                    typingTimeout
+                );
+
+                typingTimeout =
+                    setTimeout(() => {
+
+                        sendTyping(false);
+
+                    }, 1000);
+            }
+        );
+    }
+);
+
+/* =========================
+   TYPING
+========================= */
 
 function sendTyping(status) {
 
     if (!selectedUser) return;
 
-    stompClient.send("/app/typing", {}, JSON.stringify({
-        from: me,
-        to: selectedUser,
-        isTyping: status
-    }));
+    if (!connected) return;
+
+    stompClient.send(
+        "/app/typing",
+        {},
+        JSON.stringify({
+
+            from: me,
+
+            to: selectedUser,
+
+            isTyping: status
+        })
+    );
 }
 
-/* ================= MESSAGES ================= */
+/* =========================
+   LOAD MESSAGES
+========================= */
 
 async function loadMessages() {
 
     if (!selectedUser) return;
 
-    let res = await fetch(
-        API_BASE + `/messages?user1=${me}&user2=${selectedUser}`
-    );
+    try {
 
-    let data = await res.json();
+        let res =
+            await fetch(
+                `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+            );
 
-    let box = document.getElementById("messages");
-    box.innerHTML = "";
+        let data =
+            await res.json();
 
-    data.forEach(renderMessage);
+        let box =
+            document.getElementById("messages");
+
+        box.innerHTML = "";
+
+        renderedMessages.clear();
+
+        data.forEach(m => {
+
+            let key =
+                m.id ||
+                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+            renderedMessages.add(key);
+
+            renderMessage(m);
+        });
+
+    } catch(e) {
+
+        console.log(
+            "Load messages error:",
+            e
+        );
+    }
 }
 
-/* ================= RENDER ================= */
+/* =========================
+   RENDER MESSAGE
+========================= */
 
 function renderMessage(m) {
 
-    let box = document.getElementById("messages");
+    let box =
+        document.getElementById("messages");
 
-    let mine = m.from === me;
+    let mine =
+        m.from === me;
 
     let time = "";
 
     if (m.timestamp) {
-        let d = new Date(m.timestamp);
-        time = d.getHours() + ":" + d.getMinutes();
+
+        let d =
+            new Date(m.timestamp);
+
+        time =
+            d.getHours() +
+            ":" +
+            String(
+                d.getMinutes()
+            ).padStart(2, "0");
     }
 
     box.innerHTML += `
-        <div class="${mine ? 'myMsg' : 'otherMsg'}">
+
+        <div class="${
+            mine
+            ? "myMsg"
+            : "otherMsg"
+        }">
+
             <div>${m.content}</div>
-            <div class="msgTime">${time}</div>
+
+            <div class="msgTime">
+                ${time}
+            </div>
+
         </div>
     `;
 
-    box.scrollTop = box.scrollHeight;
+    box.scrollTop =
+        box.scrollHeight;
 }
 
-/* ================= AUTO REFRESH ================= */
+/* =========================
+   AUTO USERS REFRESH
+========================= */
 
-setInterval(loadUsers, 4000);
+setInterval(() => {
+
+    loadUsers();
+
+}, 5000);
