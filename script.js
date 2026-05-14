@@ -722,17 +722,31 @@ async function loadMessages() {
 
     try {
 
-        const res =
-
-        await fetch(
+        const res = await fetch(
 
             `${API_BASE}/messages?user1=${me}&user2=${selectedUser}&page=${currentPage}&size=${PAGE_SIZE}`
         );
 
-        const data =
-        await res.json();
+        const data = await res.json();
 
-        data.reverse().forEach(m => {
+        const box =
+        document.getElementById(
+            "messages"
+        );
+
+        if (!box) return;
+
+        /* first page clear */
+
+        if (currentPage === 0) {
+
+            box.innerHTML = "";
+        }
+
+        /* IMPORTANT */
+        /* remove reverse() */
+
+        data.forEach(m => {
 
             const key =
 
@@ -746,12 +760,24 @@ async function loadMessages() {
                 return;
             }
 
-            loadedMessageIds.add(
-                key
-            );
+            loadedMessageIds.add(key);
 
-            renderMessage(m);
+            renderMessage(
+                m,
+                currentPage !== 0
+            );
         });
+
+        /* auto scroll only first load */
+
+        if (currentPage === 0) {
+
+            requestAnimationFrame(() => {
+
+                box.scrollTop =
+                box.scrollHeight;
+            });
+        }
 
     } catch (e) {
 
@@ -770,7 +796,10 @@ async function loadMessages() {
    RENDER MESSAGE
 ========================= */
 
-function renderMessage(m) {
+function renderMessage(
+    m,
+    prepend = false
+) {
 
     const box =
 
@@ -853,24 +882,27 @@ function renderMessage(m) {
         timeDiv
     );
 
-    box.appendChild(msgDiv);
+    /* prepend old msgs */
 
-    /* Prevent memory overflow */
+    if (prepend) {
 
-    while (
-        box.children.length > 200
-    ) {
+        box.prepend(msgDiv);
 
-        box.removeChild(
-            box.firstChild
-        );
+    } else {
+
+        box.appendChild(msgDiv);
     }
 
-    requestAnimationFrame(() => {
+    /* auto scroll only new msg */
 
-        box.scrollTop =
-        box.scrollHeight;
-    });
+    if (!prepend) {
+
+        requestAnimationFrame(() => {
+
+            box.scrollTop =
+            box.scrollHeight;
+        });
+    }
 }
 
 /* =========================
