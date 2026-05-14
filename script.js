@@ -5,7 +5,7 @@ const API_BASE =
    USER
 ========================= */
 
-let me =
+const me =
 localStorage.getItem("user");
 
 if (!me) {
@@ -24,19 +24,27 @@ let stompClient = null;
 
 let connected = false;
 
+let reconnecting = false;
+
 let typingTimeout = null;
 
-/* Prevent repeated messages */
-
-let renderedMessages =
-new Set();
-
-let loadedMessageIds =
-new Set();
-
-/* Online users */
-
 let onlineUsers = [];
+
+/* Message cache */
+
+const renderedMessages =
+new Set();
+
+const loadedMessageIds =
+new Set();
+
+/* Pagination */
+
+let currentPage = 0;
+
+const PAGE_SIZE = 50;
+
+let loadingMessages = false;
 
 /* =========================
    START APP
@@ -44,7 +52,7 @@ let onlineUsers = [];
 
 window.onload = async () => {
 
-    let meBox =
+    const meBox =
     document.getElementById("me");
 
     if (meBox) {
@@ -61,7 +69,7 @@ window.onload = async () => {
             API_BASE + "/users"
         );
 
-    } catch(e) {
+    } catch (e) {
 
         console.log(
             "Wake backend error:",
@@ -71,25 +79,31 @@ window.onload = async () => {
 
     /* SET ONLINE */
 
-    fetch(
+    try {
 
-        API_BASE +
-        "/online?user=" + me,
+        await fetch(
 
-        {
-            method:"POST"
-        }
-    );
+            API_BASE +
+            "/online?user=" + me,
 
-    setTimeout(() => {
+            {
+                method: "POST"
+            }
+        );
 
-        connectSocket();
+    } catch (e) {
 
-        loadOnlineUsers();
+        console.log(
+            "Online error:",
+            e
+        );
+    }
 
-        loadUsers();
+    connectSocket();
 
-    }, 2000);
+    loadOnlineUsers();
+
+    loadUsers();
 };
 
 /* =========================
@@ -98,7 +112,10 @@ window.onload = async () => {
 
 function connectSocket() {
 
-    if (connected) return;
+    if (connected || reconnecting)
+        return;
+
+    reconnecting = true;
 
     console.log(
         "Connecting socket..."
@@ -125,11 +142,15 @@ function connectSocket() {
 
                 connected = true;
 
+                reconnecting = false;
+
                 console.log(
                     "Socket connected"
                 );
 
-                /* RECEIVE MESSAGE */
+                /* =====================
+                   RECEIVE MESSAGE
+                ===================== */
 
                 stompClient.subscribe(
 
@@ -137,28 +158,22 @@ function connectSocket() {
 
                     (msg) => {
 
-                        let m =
+                        const m =
                         JSON.parse(
                             msg.body
                         );
 
-                        let key =
+                        const key =
 
                             m.id ||
 
                             `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
-
-                        /* Prevent repeat */
 
                         if (
                             renderedMessages.has(key)
                         ) {
                             return;
                         }
-
-                        renderedMessages.add(
-                            key
-                        );
 
                         if (
 
@@ -177,10 +192,14 @@ function connectSocket() {
 
                             renderMessage(m);
                         }
+
+                        loadUsers();
                     }
                 );
 
-                /* TYPING */
+                /* =====================
+                   TYPING
+                ===================== */
 
                 stompClient.subscribe(
 
@@ -188,16 +207,20 @@ function connectSocket() {
 
                     (msg) => {
 
-                        let data =
+                        const data =
                         JSON.parse(
                             msg.body
                         );
 
-                        let typingBox =
+                        const typingBox =
 
                         document.getElementById(
                             "typing"
                         );
+
+                        if (
+                            !typingBox
+                        ) return;
 
                         if (
 
@@ -218,14 +241,14 @@ function connectSocket() {
 
             (err) => {
 
-                connected = false;
-
                 console.log(
                     "Socket failed:",
                     err
                 );
 
-                /* reconnect */
+                connected = false;
+
+                reconnecting = false;
 
                 setTimeout(() => {
 
@@ -235,12 +258,16 @@ function connectSocket() {
             }
         );
 
-    } catch(e) {
+    } catch (e) {
 
         console.log(
             "Socket error:",
             e
         );
+
+        connected = false;
+
+        reconnecting = false;
 
         setTimeout(() => {
 
@@ -258,7 +285,7 @@ async function loadOnlineUsers() {
 
     try {
 
-        let res =
+        const res =
 
         await fetch(
             API_BASE +
@@ -268,7 +295,7 @@ async function loadOnlineUsers() {
         onlineUsers =
         await res.json();
 
-    } catch(e) {
+    } catch (e) {
 
         console.log(
             "Online users error:",
@@ -285,16 +312,16 @@ async function loadUsers() {
 
     try {
 
-        let res =
+        const res =
 
         await fetch(
             API_BASE + "/users"
         );
 
-        let users =
+        const users =
         await res.json();
 
-        let box =
+        const box =
 
         document.getElementById(
             "users"
@@ -309,13 +336,13 @@ async function loadUsers() {
             if (username === me)
                 return;
 
-            let online =
+            const online =
 
             onlineUsers.includes(
                 username
             );
 
-            let div =
+            const div =
             document.createElement(
                 "div"
             );
@@ -328,66 +355,99 @@ async function loadUsers() {
                 openChat(username);
             };
 
-            div.innerHTML = `
+            const wrapper =
+            document.createElement(
+                "div"
+            );
 
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    width:100%;
-                ">
+            wrapper.style.display =
+            "flex";
 
-                    <div>
+            wrapper.style.justifyContent =
+            "space-between";
 
-                        <b>${username}</b>
+            wrapper.style.alignItems =
+            "center";
 
-                        <div style="
-                            font-size:12px;
-                            margin-top:4px;
-                            color:${
-                                online
-                                ? '#4ade80'
-                                : '#888'
-                            };
-                        ">
+            wrapper.style.width =
+            "100%";
 
-                            ${
-                                online
-                                ? 'online'
-                                : 'offline'
-                            }
+            const left =
+            document.createElement(
+                "div"
+            );
 
-                        </div>
+            const name =
+            document.createElement(
+                "b"
+            );
 
-                    </div>
+            name.innerText =
+            username;
 
-                    <div style="
-                        width:10px;
-                        height:10px;
-                        border-radius:50%;
-                        background:${
-                            online
-                            ? '#4ade80'
-                            : '#555'
-                        };
+            const status =
+            document.createElement(
+                "div"
+            );
 
-                        box-shadow:
-                        0 0 8px ${
-                            online
-                            ? '#4ade80'
-                            : '#555'
-                        };
-                    ">
+            status.style.fontSize =
+            "12px";
 
-                    </div>
+            status.style.marginTop =
+            "4px";
 
-                </div>
-            `;
+            status.style.color =
+
+                online
+                ? "#4ade80"
+                : "#888";
+
+            status.innerText =
+
+                online
+                ? "online"
+                : "offline";
+
+            left.appendChild(name);
+
+            left.appendChild(status);
+
+            const dot =
+            document.createElement(
+                "div"
+            );
+
+            dot.style.width =
+            "10px";
+
+            dot.style.height =
+            "10px";
+
+            dot.style.borderRadius =
+            "50%";
+
+            dot.style.background =
+
+                online
+                ? "#4ade80"
+                : "#555";
+
+            dot.style.boxShadow =
+
+                online
+                ? "0 0 8px #4ade80"
+                : "0 0 8px #555";
+
+            wrapper.appendChild(left);
+
+            wrapper.appendChild(dot);
+
+            div.appendChild(wrapper);
 
             box.appendChild(div);
         });
 
-    } catch(e) {
+    } catch (e) {
 
         console.log(
             "Load users error:",
@@ -403,6 +463,24 @@ async function loadUsers() {
 function openChat(username) {
 
     selectedUser = username;
+
+    currentPage = 0;
+
+    renderedMessages.clear();
+
+    loadedMessageIds.clear();
+
+    const messagesBox =
+
+    document.getElementById(
+        "messages"
+    );
+
+    if (messagesBox) {
+
+        messagesBox.innerHTML =
+        "";
+    }
 
     document.getElementById(
         "chatWith"
@@ -421,9 +499,9 @@ function openChat(username) {
         "active"
     );
 
-    /* Hide sidebar mobile */
+    /* MOBILE */
 
-    let sidebar =
+    const sidebar =
 
     document.querySelector(
         ".sidebar"
@@ -459,7 +537,7 @@ function closeChat() {
         "active"
     );
 
-    let sidebar =
+    const sidebar =
 
     document.querySelector(
         ".sidebar"
@@ -478,7 +556,7 @@ function closeChat() {
 
 function send() {
 
-    let input =
+    const input =
 
     document.getElementById(
         "msg"
@@ -486,14 +564,16 @@ function send() {
 
     if (!input) return;
 
-    let content =
+    const content =
     input.value.trim();
 
     if (!content) return;
 
     if (!selectedUser) {
 
-        alert("Select user");
+        alert(
+            "Select user"
+        );
 
         return;
     }
@@ -507,9 +587,10 @@ function send() {
         return;
     }
 
-    let msg = {
+    const msg = {
 
-        id: crypto.randomUUID(),
+        id:
+        crypto.randomUUID(),
 
         from: me,
 
@@ -517,7 +598,8 @@ function send() {
 
         content: content,
 
-        timestamp: Date.now()
+        timestamp:
+        Date.now()
     };
 
     stompClient.send(
@@ -528,6 +610,8 @@ function send() {
 
         JSON.stringify(msg)
     );
+
+    renderMessage(msg);
 
     input.value = "";
 
@@ -544,7 +628,7 @@ document.addEventListener(
 
     () => {
 
-        let input =
+        const input =
 
         document.getElementById(
             "msg"
@@ -597,11 +681,12 @@ document.addEventListener(
 
 function sendTyping(status) {
 
-    if (!selectedUser)
+    if (
+        !selectedUser ||
+        !connected
+    ) {
         return;
-
-    if (!connected)
-        return;
+    }
 
     stompClient.send(
 
@@ -626,40 +711,34 @@ function sendTyping(status) {
 
 async function loadMessages() {
 
-    if (!selectedUser)
+    if (
+        !selectedUser ||
+        loadingMessages
+    ) {
         return;
+    }
+
+    loadingMessages = true;
 
     try {
 
-        let res =
+        const res =
 
         await fetch(
 
-            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}&page=${currentPage}&size=${PAGE_SIZE}`
         );
 
-        let data =
+        const data =
         await res.json();
 
-        let box =
+        data.reverse().forEach(m => {
 
-        document.getElementById(
-            "messages"
-        );
-
-        if (!box) return;
-
-        box.innerHTML = "";
-
-        data.forEach(m => {
-
-            let key =
+            const key =
 
                 m.id ||
 
                 `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
-
-            /* Prevent reload duplicates */
 
             if (
                 loadedMessageIds.has(key)
@@ -671,19 +750,19 @@ async function loadMessages() {
                 key
             );
 
-            renderedMessages.add(
-                key
-            );
-
             renderMessage(m);
         });
 
-    } catch(e) {
+    } catch (e) {
 
         console.log(
             "Load messages error:",
             e
         );
+
+    } finally {
+
+        loadingMessages = false;
     }
 }
 
@@ -693,7 +772,7 @@ async function loadMessages() {
 
 function renderMessage(m) {
 
-    let box =
+    const box =
 
     document.getElementById(
         "messages"
@@ -701,17 +780,40 @@ function renderMessage(m) {
 
     if (!box) return;
 
-    let mine =
+    const key =
+
+        m.id ||
+
+        `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+    if (
+        renderedMessages.has(key)
+    ) {
+        return;
+    }
+
+    renderedMessages.add(key);
+
+    const mine =
     m.from === me;
+
+    const msgDiv =
+    document.createElement(
+        "div"
+    );
+
+    msgDiv.className =
+
+        mine
+        ? "myMsg"
+        : "otherMsg";
 
     let time = "";
 
     if (m.timestamp) {
 
-        let d =
-        new Date(
-            m.timestamp
-        );
+        const d =
+        new Date(m.timestamp);
 
         time =
 
@@ -724,32 +826,92 @@ function renderMessage(m) {
             ).padStart(2, "0");
     }
 
-    box.innerHTML += `
+    const content =
+    document.createElement(
+        "div"
+    );
 
-        <div class="${
-            mine
-            ? "myMsg"
-            : "otherMsg"
-        }">
+    content.innerText =
+    m.content;
 
-            <div>
+    const timeDiv =
+    document.createElement(
+        "div"
+    );
 
-                ${m.content}
+    timeDiv.className =
+    "msgTime";
 
-            </div>
+    timeDiv.innerText =
+    time;
 
-            <div class="msgTime">
+    msgDiv.appendChild(
+        content
+    );
 
-                ${time}
+    msgDiv.appendChild(
+        timeDiv
+    );
 
-            </div>
+    box.appendChild(msgDiv);
 
-        </div>
-    `;
+    /* Prevent memory overflow */
 
-    box.scrollTop =
-    box.scrollHeight;
+    while (
+        box.children.length > 200
+    ) {
+
+        box.removeChild(
+            box.firstChild
+        );
+    }
+
+    requestAnimationFrame(() => {
+
+        box.scrollTop =
+        box.scrollHeight;
+    });
 }
+
+/* =========================
+   SCROLL PAGINATION
+========================= */
+
+document.addEventListener(
+
+    "DOMContentLoaded",
+
+    () => {
+
+        const box =
+
+        document.getElementById(
+            "messages"
+        );
+
+        if (!box) return;
+
+        box.addEventListener(
+
+            "scroll",
+
+            async () => {
+
+                if (
+
+                    box.scrollTop <= 0 &&
+
+                    !loadingMessages
+                ) {
+
+                    currentPage++;
+
+                    await loadMessages();
+                }
+            }
+        );
+    }
+);
 
 /* =========================
    AUTO REFRESH USERS
@@ -757,11 +919,14 @@ function renderMessage(m) {
 
 setInterval(() => {
 
-    loadOnlineUsers();
+    if (!document.hidden) {
 
-    loadUsers();
+        loadOnlineUsers();
 
-}, 5000);
+        loadUsers();
+    }
+
+}, 15000);
 
 /* =========================
    OFFLINE
