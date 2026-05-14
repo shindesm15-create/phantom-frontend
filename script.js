@@ -152,51 +152,38 @@ function connectSocket() {
                    RECEIVE MESSAGE
                 ===================== */
 
-                stompClient.subscribe(
+               stompClient.subscribe(
 
-                    "/topic/messages",
+    "/topic/messages",
 
-                    (msg) => {
+    (msg) => {
 
-                        const m =
-                        JSON.parse(
-                            msg.body
-                        );
+        const m =
+        JSON.parse(
+            msg.body
+        );
 
-                        const key =
+        if (
 
-                            m.id ||
+            (
+                m.from === me &&
+                m.to === selectedUser
+            )
 
-                            `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+            ||
 
-                        if (
-                            renderedMessages.has(key)
-                        ) {
-                            return;
-                        }
+            (
+                m.from === selectedUser &&
+                m.to === me
+            )
+        ) {
 
-                        if (
+            renderMessage(m);
+        }
 
-                            (
-                                m.from === me &&
-                                m.to === selectedUser
-                            )
-
-                            ||
-
-                            (
-                                m.from === selectedUser &&
-                                m.to === me
-                            )
-                        ) {
-
-                            renderMessage(m);
-                        }
-
-                        loadUsers();
-                    }
-                );
-
+        loadUsers();
+    }
+);
                 /* =====================
                    TYPING
                 ===================== */
@@ -554,10 +541,10 @@ function closeChat() {
    SEND MESSAGE
 ========================= */
 
+
 function send() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
@@ -611,12 +598,11 @@ function send() {
         JSON.stringify(msg)
     );
 
-    renderMessage(msg);
-
     input.value = "";
 
     sendTyping(false);
 }
+
 
 /* =========================
    ENTER + TYPING
