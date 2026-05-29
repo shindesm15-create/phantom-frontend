@@ -32,6 +32,9 @@ let typingTimeout = null;
 
 let onlineUsers = [];
 
+const renderedMessages =
+new Set();
+
 /* =========================
    START
 ========================= */
@@ -39,7 +42,9 @@ let onlineUsers = [];
 window.onload = async () => {
 
     const meBox =
-    document.getElementById("me");
+    document.getElementById(
+        "me"
+    );
 
     if (meBox) {
 
@@ -67,7 +72,7 @@ window.onload = async () => {
 };
 
 /* =========================
-   ONLINE OFFLINE
+   ONLINE
 ========================= */
 
 async function setOnline() {
@@ -132,7 +137,7 @@ function connectSocket() {
             connected = true;
 
             console.log(
-                "Connected"
+                "Socket Connected"
             );
 
             subscribeMessages();
@@ -163,10 +168,24 @@ function subscribeMessages() {
 
         "/topic/messages",
 
-        async (msg) => {
+        (msg) => {
 
             const m =
             JSON.parse(msg.body);
+
+            const key =
+
+                m.id ||
+
+                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+            if (
+                renderedMessages.has(key)
+            ) {
+                return;
+            }
+
+            renderedMessages.add(key);
 
             const currentChat =
 
@@ -182,12 +201,8 @@ function subscribeMessages() {
                     m.to === me
                 );
 
-            if (!currentChat) {
-
-                await loadUsers();
-
+            if (!currentChat)
                 return;
-            }
 
             renderMessage(m);
 
@@ -234,7 +249,7 @@ function subscribeTyping() {
 }
 
 /* =========================
-   LOAD USERS
+   USERS
 ========================= */
 
 async function loadOnlineUsers() {
@@ -300,7 +315,7 @@ async function loadUsers() {
 
                 <div>
 
-                    <div>${user}</div>
+                    ${user}
 
                 </div>
 
@@ -326,6 +341,8 @@ async function loadUsers() {
 async function openChat(user) {
 
     selectedUser = user;
+
+    renderedMessages.clear();
 
     document.getElementById(
         "chatWith"
@@ -367,7 +384,7 @@ async function openChat(user) {
 }
 
 /* =========================
-   CHAT STATUS
+   STATUS
 ========================= */
 
 function updateChatStatus() {
@@ -418,7 +435,7 @@ function closeChat() {
 }
 
 /* =========================
-   SEND MESSAGE
+   SEND
 ========================= */
 
 function send() {
@@ -452,6 +469,10 @@ function send() {
         Date.now()
     };
 
+    renderedMessages.add(
+        msg.id
+    );
+
     stompClient.send(
 
         "/app/send",
@@ -463,13 +484,15 @@ function send() {
 
     renderMessage(msg);
 
+    smoothBottom();
+
     input.value = "";
 
     sendTyping(false);
 }
 
 /* =========================
-   LOAD OLD MESSAGES
+   LOAD MESSAGES
 ========================= */
 
 async function loadMessages() {
@@ -486,6 +509,20 @@ async function loadMessages() {
 
         data.forEach(m => {
 
+            const key =
+
+                m.id ||
+
+                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+            if (
+                renderedMessages.has(key)
+            ) {
+                return;
+            }
+
+            renderedMessages.add(key);
+
             renderMessage(m);
         });
 
@@ -498,7 +535,7 @@ async function loadMessages() {
 }
 
 /* =========================
-   RENDER MESSAGE
+   RENDER
 ========================= */
 
 function renderMessage(m) {
@@ -559,7 +596,7 @@ function renderMessage(m) {
 }
 
 /* =========================
-   INPUT EVENTS
+   INPUT
 ========================= */
 
 function setupInput() {
