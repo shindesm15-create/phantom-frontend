@@ -1,4 +1,3 @@
- 
 const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
@@ -9,7 +8,11 @@ const API_BASE =
 const me =
 localStorage.getItem("user");
 
-if (!me) {
+if (
+    !me ||
+    me === "null" ||
+    me === "undefined"
+) {
 
     window.location.href =
     "login.html";
@@ -25,26 +28,12 @@ let stompClient = null;
 
 let connected = false;
 
-let reconnecting = false;
-
 let typingTimeout = null;
 
 let onlineUsers = [];
 
-let currentPage = 0;
-
-const PAGE_SIZE = 50;
-
-let loadingMessages = false;
-
-const renderedMessages =
-new Set();
-
-const loadedMessageIds =
-new Set();
-
 /* =========================
-   START APP
+   START
 ========================= */
 
 window.onload = async () => {
@@ -58,23 +47,13 @@ window.onload = async () => {
         "Logged as: " + me;
     }
 
-    /* WAKE BACKEND */
-
     try {
 
         await fetch(
             API_BASE + "/users"
         );
 
-    } catch (e) {
-
-        console.log(
-            "Wake backend error:",
-            e
-        );
-    }
-
-    /* SET ONLINE */
+    } catch (e) {}
 
     await setOnline();
 
@@ -84,13 +63,11 @@ window.onload = async () => {
 
     await loadUsers();
 
-    setupInputEvents();
-
-    setupScrollPagination();
+    setupInput();
 };
 
 /* =========================
-   ONLINE / OFFLINE
+   ONLINE OFFLINE
 ========================= */
 
 async function setOnline() {
@@ -103,36 +80,20 @@ async function setOnline() {
             "/online?user=" + me,
 
             {
-                method: "POST"
+                method:"POST"
             }
         );
 
-    } catch (e) {
-
-        console.log(
-            "Online error:",
-            e
-        );
-    }
+    } catch(e){}
 }
 
-async function setOffline() {
+function setOffline() {
 
-    try {
+    navigator.sendBeacon(
 
-        navigator.sendBeacon(
-
-            API_BASE +
-            "/offline?user=" + me
-        );
-
-    } catch (e) {
-
-        console.log(
-            "Offline error:",
-            e
-        );
-    }
+        API_BASE +
+        "/offline?user=" + me
+    );
 }
 
 window.addEventListener(
@@ -145,131 +106,55 @@ window.addEventListener(
     }
 );
 
-window.addEventListener(
-
-    "visibilitychange",
-
-    async () => {
-
-        if (document.hidden) {
-
-            setOffline();
-
-        } else {
-
-            await setOnline();
-
-            await loadOnlineUsers();
-
-            await loadUsers();
-
-            if (selectedUser) {
-
-                updateChatStatus(
-                    selectedUser
-                );
-            }
-        }
-    }
-);
-
 /* =========================
    SOCKET
 ========================= */
 
 function connectSocket() {
 
-    if (
-        connected ||
-        reconnecting
-    ) {
-        return;
-    }
+    const socket =
 
-    reconnecting = true;
-
-    console.log(
-        "Connecting socket..."
+    new SockJS(
+        API_BASE + "/chat"
     );
 
-    try {
+    stompClient =
+    Stomp.over(socket);
 
-        const socket =
+    stompClient.debug = null;
 
-        new SockJS(
-            API_BASE + "/chat"
-        );
+    stompClient.connect(
 
-        stompClient =
-        Stomp.over(socket);
+        {},
 
-        stompClient.debug = null;
+        () => {
 
-        stompClient.heartbeat.outgoing =
-        20000;
+            connected = true;
 
-        stompClient.heartbeat.incoming =
-        20000;
+            console.log(
+                "Connected"
+            );
 
-        stompClient.connect(
+            subscribeMessages();
 
-            {},
+            subscribeTyping();
+        },
 
-            () => {
+        () => {
 
-                connected = true;
+            connected = false;
 
-                reconnecting = false;
+            setTimeout(() => {
 
-                console.log(
-                    "Socket connected"
-                );
+                connectSocket();
 
-                subscribeMessages();
-
-                subscribeTyping();
-            },
-
-            (err) => {
-
-                console.log(
-                    "Socket failed:",
-                    err
-                );
-
-                connected = false;
-
-                reconnecting = false;
-
-                setTimeout(() => {
-
-                    connectSocket();
-
-                }, 3000);
-            }
-        );
-
-    } catch (e) {
-
-        console.log(
-            "Socket error:",
-            e
-        );
-
-        connected = false;
-
-        reconnecting = false;
-
-        setTimeout(() => {
-
-            connectSocket();
-
-        }, 3000);
-    }
+            },3000);
+        }
+    );
 }
 
 /* =========================
-   SUBSCRIBE MESSAGE
+   RECEIVE MESSAGE
 ========================= */
 
 function subscribeMessages() {
@@ -278,12 +163,12 @@ function subscribeMessages() {
 
         "/topic/messages",
 
-        (msg) => {
+        async (msg) => {
 
             const m =
             JSON.parse(msg.body);
 
-            const isCurrentChat =
+            const currentChat =
 
                 (
                     m.from === me &&
@@ -297,34 +182,22 @@ function subscribeMessages() {
                     m.to === me
                 );
 
-            if (!isCurrentChat) {
+            if (!currentChat) {
 
-                loadUsers();
+                await loadUsers();
 
-                return;
-            }
-
-            const key =
-
-                m.id ||
-
-                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
-
-            if (
-                renderedMessages.has(key)
-            ) {
                 return;
             }
 
             renderMessage(m);
 
-            loadUsers();
+            smoothBottom();
         }
     );
 }
 
 /* =========================
-   SUBSCRIBE TYPING
+   TYPING
 ========================= */
 
 function subscribeTyping() {
@@ -338,14 +211,10 @@ function subscribeTyping() {
             const data =
             JSON.parse(msg.body);
 
-            const typingBox =
-
+            const typing =
             document.getElementById(
                 "typing"
             );
-
-            if (!typingBox)
-                return;
 
             if (
 
@@ -354,7 +223,7 @@ function subscribeTyping() {
                 data.to === me
             ) {
 
-                typingBox.innerText =
+                typing.innerText =
 
                     data.isTyping
                     ? "typing..."
@@ -365,7 +234,7 @@ function subscribeTyping() {
 }
 
 /* =========================
-   LOAD ONLINE USERS
+   LOAD USERS
 ========================= */
 
 async function loadOnlineUsers() {
@@ -373,7 +242,6 @@ async function loadOnlineUsers() {
     try {
 
         const res =
-
         await fetch(
             API_BASE +
             "/online-users"
@@ -382,25 +250,14 @@ async function loadOnlineUsers() {
         onlineUsers =
         await res.json();
 
-    } catch (e) {
-
-        console.log(
-            "Online users error:",
-            e
-        );
-    }
+    } catch(e){}
 }
-
-/* =========================
-   LOAD USERS
-========================= */
 
 async function loadUsers() {
 
     try {
 
         const res =
-
         await fetch(
             API_BASE + "/users"
         );
@@ -409,24 +266,21 @@ async function loadUsers() {
         await res.json();
 
         const box =
-
         document.getElementById(
             "users"
         );
 
-        if (!box) return;
-
         box.innerHTML = "";
 
-        users.forEach(username => {
+        users.forEach(user => {
 
-            if (username === me)
+            if (user === me)
                 return;
 
             const online =
 
             onlineUsers.includes(
-                username
+                user
             );
 
             const div =
@@ -439,89 +293,61 @@ async function loadUsers() {
 
             div.onclick = () => {
 
-                openChat(username);
+                openChat(user);
             };
 
             div.innerHTML = `
 
-                <div class="userRow">
+                <div>
 
-                    <div>
-
-                        <b>${username}</b>
-
-                        <div
-                        class="statusText"
-                        style="
-                        color:${online ? '#4ade80' : '#888'}
-                        ">
-
-                            ${online ? 'online' : 'offline'}
-
-                        </div>
-
-                    </div>
-
-                    <div
-                    class="statusDot"
-                    style="
-                    background:${online ? '#4ade80' : '#555'}
-                    ">
-                    </div>
+                    <div>${user}</div>
 
                 </div>
+
+                <div style="
+                    width:10px;
+                    height:10px;
+                    border-radius:50%;
+                    background:
+                    ${online ? '#4ade80' : '#777'};
+                "></div>
             `;
 
             box.appendChild(div);
         });
 
-    } catch (e) {
-
-        console.log(
-            "Load users error:",
-            e
-        );
-    }
+    } catch(e){}
 }
 
 /* =========================
    OPEN CHAT
 ========================= */
 
-function openChat(username) {
+async function openChat(user) {
 
-    selectedUser = username;
-
-    currentPage = 0;
-
-    renderedMessages.clear();
-
-    loadedMessageIds.clear();
-
-    const messagesBox =
-
-    document.getElementById(
-        "messages"
-    );
-
-    if (messagesBox) {
-
-        messagesBox.innerHTML =
-        "";
-    }
+    selectedUser = user;
 
     document.getElementById(
         "chatWith"
-    ).innerText = username;
+    ).innerText = user;
 
     document.getElementById(
         "avatarBox"
     ).innerText =
 
-    username.charAt(0)
+    user.charAt(0)
     .toUpperCase();
 
-    updateChatStatus(username);
+    updateChatStatus();
+
+    const box =
+    document.getElementById(
+        "messages"
+    );
+
+    box.innerHTML = "";
+
+    await loadMessages();
 
     document.querySelector(
         ".chat"
@@ -529,62 +355,48 @@ function openChat(username) {
         "active"
     );
 
-    const sidebar =
-
-    document.querySelector(
-        ".sidebar"
-    );
-
     if (
-
-        window.innerWidth < 900 &&
-
-        sidebar
+        window.innerWidth < 700
     ) {
 
-        sidebar.style.display =
+        document.querySelector(
+            ".sidebar"
+        ).style.display =
         "none";
     }
-
-    loadMessages();
-
-    document.getElementById(
-        "msg"
-    ).focus();
 }
 
 /* =========================
    CHAT STATUS
 ========================= */
 
-function updateChatStatus(username) {
+function updateChatStatus() {
 
-    const statusBox =
-
-    document.getElementById(
-        "chatStatus"
+    const status =
+    document.querySelector(
+        ".chatInfo p"
     );
 
-    if (!statusBox)
+    if (!selectedUser)
         return;
 
     const online =
 
     onlineUsers.includes(
-        username
+        selectedUser
     );
 
-    statusBox.innerText =
+    status.innerText =
 
         online
         ? "online"
         : "offline";
 
-    statusBox.style.color =
+    status.style.color =
 
         online
         ? "#4ade80"
-        : "#888";
+        : "#aaa";
 }
 
 /* =========================
@@ -599,17 +411,10 @@ function closeChat() {
         "active"
     );
 
-    const sidebar =
-
     document.querySelector(
         ".sidebar"
-    );
-
-    if (sidebar) {
-
-        sidebar.style.display =
-        "block";
-    }
+    ).style.display =
+    "block";
 }
 
 /* =========================
@@ -619,12 +424,9 @@ function closeChat() {
 function send() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
-
-    if (!input) return;
 
     const content =
     input.value.trim();
@@ -632,23 +434,8 @@ function send() {
     if (!content)
         return;
 
-    if (!selectedUser) {
-
-        alert(
-            "Select user"
-        );
-
+    if (!selectedUser)
         return;
-    }
-
-    if (!connected) {
-
-        alert(
-            "Socket not connected"
-        );
-
-        return;
-    }
 
     const msg = {
 
@@ -682,49 +469,105 @@ function send() {
 }
 
 /* =========================
-   TYPING
+   LOAD OLD MESSAGES
 ========================= */
 
-function sendTyping(status) {
+async function loadMessages() {
 
-    if (
-        !selectedUser ||
-        !connected
-    ) {
-        return;
+    try {
+
+        const res = await fetch(
+
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+        );
+
+        const data =
+        await res.json();
+
+        data.forEach(m => {
+
+            renderMessage(m);
+        });
+
+        smoothBottom();
+
+    } catch(e){
+
+        console.log(e);
+    }
+}
+
+/* =========================
+   RENDER MESSAGE
+========================= */
+
+function renderMessage(m) {
+
+    const box =
+    document.getElementById(
+        "messages"
+    );
+
+    const mine =
+    m.from === me;
+
+    const div =
+    document.createElement(
+        "div"
+    );
+
+    div.className =
+
+        mine
+        ? "myMsg"
+        : "otherMsg";
+
+    let time = "";
+
+    if (m.timestamp) {
+
+        const d =
+        new Date(m.timestamp);
+
+        time =
+
+            d.getHours() +
+
+            ":" +
+
+            String(
+                d.getMinutes()
+            ).padStart(2,"0");
     }
 
-    stompClient.send(
+    div.innerHTML = `
 
-        "/app/typing",
+        <div>
 
-        {},
+            ${m.content}
 
-        JSON.stringify({
+        </div>
 
-            from: me,
+        <div class="msgTime">
 
-            to: selectedUser,
+            ${time}
 
-            isTyping: status
-        })
-    );
+        </div>
+    `;
+
+    box.appendChild(div);
 }
 
 /* =========================
    INPUT EVENTS
 ========================= */
 
-function setupInputEvents() {
+function setupInput() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
-
-    if (!input)
-        return;
 
     input.addEventListener(
 
@@ -759,279 +602,74 @@ function setupInputEvents() {
 
                 sendTyping(false);
 
-            }, 1000);
+            },1000);
         }
     );
 }
 
 /* =========================
-   LOAD MESSAGES
+   SEND TYPING
 ========================= */
 
-async function loadMessages() {
+function sendTyping(status) {
 
     if (
-        !selectedUser ||
-        loadingMessages
+        !connected ||
+        !selectedUser
     ) {
         return;
     }
 
-    loadingMessages = true;
+    stompClient.send(
 
-    try {
+        "/app/typing",
 
-        const res = await fetch(
+        {},
 
-            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}&page=${currentPage}&size=${PAGE_SIZE}`
-        );
+        JSON.stringify({
 
-        const data =
-        await res.json();
+            from: me,
 
-        const box =
+            to: selectedUser,
 
-        document.getElementById(
-            "messages"
-        );
-
-        if (!box)
-            return;
-
-        if (currentPage === 0) {
-
-            box.innerHTML = "";
-        }
-
-        data.reverse().forEach(m => {
-
-            const key =
-
-                m.id ||
-
-                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
-
-            if (
-                loadedMessageIds.has(key)
-            ) {
-                return;
-            }
-
-            loadedMessageIds.add(key);
-
-            renderMessage(
-                m,
-                currentPage !== 0
-            );
-        });
-
-        if (currentPage === 0) {
-
-            smoothScrollBottom();
-        }
-
-    } catch (e) {
-
-        console.log(
-            "Load messages error:",
-            e
-        );
-
-    } finally {
-
-        loadingMessages = false;
-    }
+            isTyping: status
+        })
+    );
 }
 
 /* =========================
-   RENDER MESSAGE
+   SCROLL
 ========================= */
 
-function renderMessage(
-    m,
-    prepend = false
-) {
+function smoothBottom() {
 
     const box =
-
     document.getElementById(
         "messages"
     );
-
-    if (!box)
-        return;
-
-    const key =
-
-        m.id ||
-
-        `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
-
-    if (
-        renderedMessages.has(key)
-    ) {
-        return;
-    }
-
-    renderedMessages.add(key);
-
-    const mine =
-    m.from === me;
-
-    const msgDiv =
-    document.createElement(
-        "div"
-    );
-
-    msgDiv.className =
-
-        mine
-        ? "myMsg"
-        : "otherMsg";
-
-    let time = "";
-
-    if (m.timestamp) {
-
-        const d =
-        new Date(m.timestamp);
-
-        time =
-
-            d.getHours() +
-
-            ":" +
-
-            String(
-                d.getMinutes()
-            ).padStart(2, "0");
-    }
-
-    msgDiv.innerHTML = `
-
-        <div class="msgContent">
-
-            ${m.content}
-
-        </div>
-
-        <div class="msgTime">
-
-            ${time}
-
-        </div>
-    `;
-
-    if (prepend) {
-
-        const oldHeight =
-        box.scrollHeight;
-
-        box.prepend(msgDiv);
-
-        const newHeight =
-        box.scrollHeight;
-
-        box.scrollTop +=
-
-            newHeight -
-            oldHeight;
-
-    } else {
-
-        box.appendChild(msgDiv);
-
-        smoothScrollBottom();
-    }
-}
-
-/* =========================
-   SMOOTH SCROLL
-========================= */
-
-function smoothScrollBottom() {
-
-    const box =
-
-    document.getElementById(
-        "messages"
-    );
-
-    if (!box)
-        return;
 
     requestAnimationFrame(() => {
 
-        box.scrollTo({
-
-            top:
-            box.scrollHeight,
-
-            behavior:
-            "smooth"
-        });
+        box.scrollTop =
+        box.scrollHeight;
     });
 }
 
 /* =========================
-   PAGINATION
-========================= */
-
-function setupScrollPagination() {
-
-    const box =
-
-    document.getElementById(
-        "messages"
-    );
-
-    if (!box)
-        return;
-
-    box.addEventListener(
-
-        "scroll",
-
-        async () => {
-
-            if (
-
-                box.scrollTop <= 0 &&
-
-                !loadingMessages
-            ) {
-
-                currentPage++;
-
-                await loadMessages();
-            }
-        }
-    );
-}
-
-/* =========================
-   AUTO REFRESH USERS
+   AUTO REFRESH
 ========================= */
 
 setInterval(
 
     async () => {
 
-        if (!document.hidden) {
+        await loadOnlineUsers();
 
-            await loadOnlineUsers();
+        await loadUsers();
 
-            await loadUsers();
-
-            if (selectedUser) {
-
-                updateChatStatus(
-                    selectedUser
-                );
-            }
-        }
+        updateChatStatus();
 
     },
 
-    5000
+    4000
 );
