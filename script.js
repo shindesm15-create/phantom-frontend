@@ -19,11 +19,15 @@ if (!me) {
 ========================= */
 
 let selectedUser = "";
+
 let stompClient = null;
+
 let connected = false;
+
 let typingTimeout = null;
 
 let onlineUsers = [];
+
 let usersInChat = [];
 
 const renderedMessages =
@@ -39,6 +43,7 @@ window.onload = async () => {
     document.getElementById("me");
 
     if (meBox) {
+
         meBox.innerText =
         "Logged as: " + me;
     }
@@ -53,7 +58,7 @@ window.onload = async () => {
 };
 
 /* =========================
-   ONLINE / OFFLINE
+   ONLINE OFFLINE
 ========================= */
 
 async function setOnline() {
@@ -61,26 +66,38 @@ async function setOnline() {
     try {
 
         await fetch(
+
             API_BASE +
             "/online?user=" + me,
+
             {
                 method:"POST"
             }
         );
 
-    } catch(e){}
+    } catch(e) {
+
+        console.log(e);
+    }
 }
 
 function setOffline() {
 
     navigator.sendBeacon(
+
         API_BASE +
         "/offline?user=" + me
     );
 }
 
+/* =========================
+   WINDOW EVENTS
+========================= */
+
 window.addEventListener(
+
     "beforeunload",
+
     () => {
 
         sendChatPresence(false);
@@ -90,6 +107,7 @@ window.addEventListener(
 );
 
 document.addEventListener(
+
     "visibilitychange",
 
     async () => {
@@ -118,6 +136,7 @@ document.addEventListener(
 function connectSocket() {
 
     const socket =
+
     new SockJS(
         API_BASE + "/chat"
     );
@@ -136,11 +155,13 @@ function connectSocket() {
             connected = true;
 
             console.log(
-                "Socket Connected"
+                "Connected"
             );
 
             subscribeMessages();
+
             subscribeTyping();
+
             subscribeChatPresence();
         },
 
@@ -149,7 +170,7 @@ function connectSocket() {
             connected = false;
 
             console.log(
-                "Socket Disconnected"
+                "Disconnected"
             );
 
             setTimeout(() => {
@@ -218,14 +239,15 @@ function subscribeChatPresence() {
                 );
             }
 
-            updateChatStatus();
             loadUsers();
+
+            updateChatStatus();
         }
     );
 }
 
 /* =========================
-   RECEIVE MESSAGE
+   MESSAGES
 ========================= */
 
 function subscribeMessages() {
@@ -347,6 +369,7 @@ function sendTyping(status) {
 async function refreshUsers() {
 
     await loadOnlineUsers();
+
     await loadUsers();
 }
 
@@ -355,6 +378,7 @@ async function loadOnlineUsers() {
     try {
 
         const res =
+
         await fetch(
             API_BASE +
             "/online-users"
@@ -371,6 +395,7 @@ async function loadUsers() {
     try {
 
         const res =
+
         await fetch(
             API_BASE + "/users"
         );
@@ -379,6 +404,7 @@ async function loadUsers() {
         await res.json();
 
         const box =
+
         document.getElementById(
             "users"
         );
@@ -394,13 +420,21 @@ async function loadUsers() {
                 return;
 
             const online =
-            onlineUsers.includes(user);
+
+            onlineUsers.includes(
+                user
+            );
 
             const inChat =
-            usersInChat.includes(user);
+
+            usersInChat.includes(
+                user
+            );
 
             const div =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
             div.className =
             "user";
@@ -412,41 +446,40 @@ async function loadUsers() {
 
             div.innerHTML = `
 
-                <div style="
-                    display:flex;
-                    align-items:center;
-                    gap:10px;
-                ">
+                <div class="userRow">
 
-                    <div style="
-                        width:42px;
-                        height:42px;
-                        border-radius:50%;
-                        background:#222;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        font-size:20px;
-                    ">
+                    <div class="snapAvatar">
 
-                        ${inChat ? "💀" : ""}
+                        ${
+                            inChat
+                            ? "💀"
+                            : user
+                              .charAt(0)
+                              .toUpperCase()
+                        }
 
                     </div>
 
                     <div>
 
-                        <div>
-                            <b>${user}</b>
+                        <div class="userName">
+                            ${user}
                         </div>
 
-                        <div style="
-                            font-size:12px;
+                        <div class="userStatus"
+                        style="
                             color:
-                            ${online ? '#4ade80' : '#888'};
+                            ${
+                                online
+                                ? "#4ade80"
+                                : "#888"
+                            };
                         ">
 
                             ${
-                                online
+                                inChat
+                                ? "in chat"
+                                : online
                                 ? "online"
                                 : "offline"
                             }
@@ -461,7 +494,10 @@ async function loadUsers() {
             box.appendChild(div);
         });
 
-    } catch(e){}
+    } catch(e){
+
+        console.log(e);
+    }
 }
 
 /* =========================
@@ -484,18 +520,15 @@ async function openChat(user) {
         "chatWith"
     ).innerText = user;
 
-    document.getElementById(
-        "avatarBox"
-    ).innerText =
-
-    user.charAt(0)
-    .toUpperCase();
+    updateHeaderAvatar();
 
     updateChatStatus();
 
     await loadMessages();
 
-    if (window.innerWidth <= 700) {
+    if (
+        window.innerWidth <= 700
+    ) {
 
         document.querySelector(
             ".sidebar"
@@ -519,15 +552,49 @@ function closeChat() {
 
     selectedUser = "";
 
-    document.querySelector(
-        ".chat"
-    ).style.display =
-    "none";
+    if (
+        window.innerWidth <= 700
+    ) {
 
-    document.querySelector(
-        ".sidebar"
-    ).style.display =
-    "block";
+        document.querySelector(
+            ".chat"
+        ).style.display =
+        "none";
+
+        document.querySelector(
+            ".sidebar"
+        ).style.display =
+        "block";
+    }
+}
+
+/* =========================
+   HEADER AVATAR
+========================= */
+
+function updateHeaderAvatar() {
+
+    const avatar =
+    document.getElementById(
+        "avatarBox"
+    );
+
+    if (!avatar)
+        return;
+
+    const inChat =
+
+    usersInChat.includes(
+        selectedUser
+    );
+
+    avatar.innerText =
+
+        inChat
+        ? "💀"
+        : selectedUser
+          .charAt(0)
+          .toUpperCase();
 }
 
 /* =========================
@@ -540,16 +607,19 @@ function updateChatStatus() {
         return;
 
     const online =
+
     onlineUsers.includes(
         selectedUser
     );
 
     const inChat =
+
     usersInChat.includes(
         selectedUser
     );
 
     const statusBox =
+
     document.getElementById(
         "chatStatus"
     );
@@ -559,24 +629,28 @@ function updateChatStatus() {
 
     if (inChat) {
 
-        statusBox.innerHTML =
-        "💀 in chat";
+        statusBox.innerText =
+        "in chat";
 
         statusBox.style.color =
         "#4ade80";
 
     } else {
 
-        statusBox.innerHTML =
-        online
-        ? "online"
-        : "offline";
+        statusBox.innerText =
+
+            online
+            ? "online"
+            : "offline";
 
         statusBox.style.color =
-        online
-        ? "#4ade80"
-        : "#888";
+
+            online
+            ? "#4ade80"
+            : "#888";
     }
+
+    updateHeaderAvatar();
 }
 
 /* =========================
@@ -586,6 +660,7 @@ function updateChatStatus() {
 function send() {
 
     const input =
+
     document.getElementById(
         "msg"
     );
@@ -659,6 +734,7 @@ async function loadMessages() {
     try {
 
         const res =
+
         await fetch(
 
             `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
@@ -688,20 +764,18 @@ async function loadMessages() {
 
     } catch(e){
 
-        console.log(
-            "Load error",
-            e
-        );
+        console.log(e);
     }
 }
 
 /* =========================
-   RENDER MESSAGE
+   RENDER
 ========================= */
 
 function renderMessage(m) {
 
     const box =
+
     document.getElementById(
         "messages"
     );
@@ -756,12 +830,13 @@ function renderMessage(m) {
 }
 
 /* =========================
-   INPUT EVENTS
+   INPUT
 ========================= */
 
 function setupInputEvents() {
 
     const input =
+
     document.getElementById(
         "msg"
     );
@@ -814,6 +889,7 @@ function setupInputEvents() {
 function smoothScrollBottom() {
 
     const box =
+
     document.getElementById(
         "messages"
     );
@@ -854,4 +930,3 @@ setInterval(
 
     3000
 );
-
