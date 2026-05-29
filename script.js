@@ -483,7 +483,6 @@ function updateChatStatus() {
 function send() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
@@ -518,15 +517,18 @@ function send() {
         Date.now()
     };
 
-    /* SAVE FIRST */
+    /* SAVE ID */
 
     renderedMessages.add(
         msg.id
     );
 
-    /* SHOW INSTANTLY */
+    /* SHOW MESSAGE */
 
-    renderMessage(msg);
+    renderMessage({
+        ...msg,
+        local:true
+    });
 
     smoothScrollBottom();
 
@@ -546,6 +548,87 @@ function send() {
     sendTyping(false);
 }
 
+/* =========================
+   RENDER MESSAGE
+========================= */
+
+function renderMessage(m) {
+
+    const box =
+
+    document.getElementById(
+        "messages"
+    );
+
+    if (!box)
+        return;
+
+    const key =
+
+        m.id ||
+
+        `${m.from}_${m.content}_${m.timestamp}`;
+
+    /* BLOCK DUPLICATE */
+
+    if (
+        renderedMessages.has(key) &&
+        !m.local
+    ) {
+        return;
+    }
+
+    renderedMessages.add(key);
+
+    const mine =
+    m.from === me;
+
+    const div =
+    document.createElement(
+        "div"
+    );
+
+    div.className =
+
+        mine
+        ? "myMsg"
+        : "otherMsg";
+
+    let time = "";
+
+    if (m.timestamp) {
+
+        const d =
+        new Date(m.timestamp);
+
+        time =
+
+            d.getHours() +
+
+            ":" +
+
+            String(
+                d.getMinutes()
+            ).padStart(2,"0");
+    }
+
+    div.innerHTML = `
+
+        <div>
+
+            ${m.content}
+
+        </div>
+
+        <div class="msgTime">
+
+            ${time}
+
+        </div>
+    `;
+
+    box.appendChild(div);
+}
 /* =========================
    TYPING SEND
 ========================= */
