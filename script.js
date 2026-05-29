@@ -216,6 +216,8 @@ function subscribeMessages() {
 
                 `${m.from}_${m.content}_${m.timestamp}`;
 
+            /* FIX DUPLICATE */
+
             if (
                 renderedMessages.has(key)
             ) {
@@ -230,6 +232,8 @@ function subscribeMessages() {
         }
     );
 }
+
+
 
 /* =========================
    TYPING
@@ -468,6 +472,7 @@ function closeChat() {
    STATUS
 ========================= */
 
+
 function updateChatStatus() {
 
     if (!selectedUser)
@@ -485,8 +490,11 @@ function updateChatStatus() {
         "chatStatus"
     );
 
-    if (!statusBox)
-        return;
+    const avatarBox =
+
+    document.getElementById(
+        "avatarBox"
+    );
 
     statusBox.innerText =
 
@@ -499,7 +507,18 @@ function updateChatStatus() {
         online
         ? "#4ade80"
         : "#888";
+
+    /* SNAPCHAT STYLE */
+
+    avatarBox.innerText =
+
+        online
+        ? "💀"
+        : selectedUser
+          .charAt(0)
+          .toUpperCase();
 }
+
 
 /* =========================
    SEND
@@ -542,9 +561,19 @@ function send() {
         Date.now()
     };
 
+    /* SAVE BEFORE SOCKET */
+
+    renderedMessages.add(
+        msg.id
+    );
+
+    /* SHOW LOCAL */
+
     renderMessage(msg);
 
     smoothScrollBottom();
+
+    /* SEND */
 
     stompClient.send(
 
@@ -559,6 +588,7 @@ function send() {
 
     sendTyping(false);
 }
+
 
 /* =========================
    SEND TYPING
