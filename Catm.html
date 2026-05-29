@@ -1,22 +1,31 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 
-<title>Phantom </title>
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+/>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>Phantom Chat</title>
+
+<link
+href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+rel="stylesheet"
+/>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
 
 <style>
 
 /* =========================
-   GLOBAL
+   RESET
 ========================= */
 
 *{
@@ -25,10 +34,20 @@
     box-sizing:border-box;
 }
 
+html,
 body{
-    font-family:'Poppins',sans-serif;
-    height:100vh;
+    width:100%;
+    height:100dvh;
     overflow:hidden;
+}
+
+/* =========================
+   BODY
+========================= */
+
+body{
+
+    font-family:'Poppins',sans-serif;
 
     background:
     radial-gradient(circle at top left,#31104d,#070707 45%),
@@ -36,24 +55,16 @@ body{
 
     color:white;
 }
-   #messages{
-
-    display:flex;
-
-    flex-direction:column;
-
-    overflow-y:auto;
-
-    scroll-behavior:smooth;
-}
 
 /* =========================
-   MAIN CONTAINER
+   APP
 ========================= */
 
 .container{
+    width:100%;
+    height:100dvh;
     display:flex;
-    height:100vh;
+    overflow:hidden;
 }
 
 /* =========================
@@ -61,172 +72,100 @@ body{
 ========================= */
 
 .sidebar{
-    width:320px;
-    background:rgba(15,15,25,0.85);
 
-    border-right:1px solid rgba(255,255,255,0.05);
+    width:320px;
+
+    background:
+    rgba(15,15,25,0.88);
 
     backdrop-filter:blur(25px);
 
+    border-right:
+    1px solid rgba(255,255,255,0.05);
+
     overflow-y:auto;
 
-    position:relative;
+    flex-shrink:0;
 }
 
-/* GLOW */
-
-.sidebar::before{
-    content:"";
-
-    position:absolute;
-
-    width:260px;
-    height:260px;
-
-    background:#a855f7;
-
-    filter:blur(130px);
-
-    opacity:0.14;
-
-    top:-120px;
-    left:-120px;
-}
-
-/* =========================
-   LOGO
-========================= */
+/* LOGO */
 
 .logo{
-    padding:24px;
 
-    font-size:30px;
+    padding:22px;
+
+    font-size:28px;
 
     font-weight:700;
 
-    letter-spacing:2px;
-
-    border-bottom:1px solid rgba(255,255,255,0.05);
+    border-bottom:
+    1px solid rgba(255,255,255,0.05);
 }
 
 .logo span{
     color:#d8b4fe;
-
-    text-shadow:
-    0 0 18px rgba(168,85,247,0.55);
 }
 
-/* =========================
-   USER INFO
-========================= */
+/* ME */
 
 .me{
-    padding:16px 24px;
 
-    color:#bdbdbd;
+    padding:16px 22px;
 
     font-size:14px;
 
-    border-bottom:1px solid rgba(255,255,255,0.05);
+    color:#aaa;
+
+    border-bottom:
+    1px solid rgba(255,255,255,0.05);
 }
 
-/* =========================
-   USERS
-========================= */
+/* USERS */
 
 #users{
-    padding:12px;
+    padding:10px;
 }
 
+/* USER */
+
 .user{
-    display:flex;
 
-    justify-content:space-between;
-
-    align-items:center;
-
-    padding:16px;
-
-    margin-bottom:10px;
+    padding:14px;
 
     border-radius:18px;
 
+    margin-bottom:10px;
+
+    background:
+    rgba(255,255,255,0.03);
+
     cursor:pointer;
 
-    transition:0.3s;
-
-    background:rgba(255,255,255,0.03);
-
-    border:1px solid transparent;
-
-    font-size:15px;
-
-    font-weight:500;
+    transition:0.25s;
 }
 
 .user:hover{
 
+    background:#1d1527;
+
     transform:translateY(-2px);
-
-    background:#1b1527;
-
-    border:1px solid rgba(216,180,254,0.20);
-
-    box-shadow:
-    0 0 18px rgba(168,85,247,0.12);
 }
 
-/* =========================
-   CHAT AREA
-========================= */
+/* USER ROW */
 
-.chat{
-    flex:1;
+.userRow{
 
-    display:flex;
-
-    flex-direction:column;
-
-    background:
-    rgba(8,8,12,0.92);
-
-    position:relative;
-}
-
-/* =========================
-   TOP BAR
-========================= */
-
-.top{
-    height:75px;
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:center;
-
-    padding:0 25px;
-
-    border-bottom:1px solid rgba(255,255,255,0.05);
-
-    background:
-    rgba(15,15,25,0.72);
-
-    backdrop-filter:blur(20px);
-}
-
-.topLeft{
     display:flex;
 
     align-items:center;
 
-    gap:14px;
+    gap:12px;
 }
 
 /* AVATAR */
 
-.avatar{
+.snapAvatar{
+
     width:48px;
     height:48px;
 
@@ -241,33 +180,133 @@ body{
 
     display:flex;
 
-    justify-content:center;
-
     align-items:center;
+
+    justify-content:center;
 
     font-weight:600;
 
     font-size:18px;
 
-    box-shadow:
-    0 0 18px rgba(168,85,247,0.22);
+    flex-shrink:0;
+}
+
+/* NAME */
+
+.userName{
+    font-size:15px;
+    font-weight:500;
+}
+
+/* STATUS */
+
+.userStatus{
+    font-size:12px;
+    margin-top:2px;
+}
+
+/* =========================
+   CHAT
+========================= */
+
+.chat{
+
+    flex:1;
+
+    display:flex;
+
+    flex-direction:column;
+
+    height:100dvh;
+
+    background:
+    rgba(8,8,12,0.92);
+}
+
+/* =========================
+   TOP BAR
+========================= */
+
+.top{
+
+    height:75px;
+
+    min-height:75px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:0 20px;
+
+    border-bottom:
+    1px solid rgba(255,255,255,0.05);
+
+    background:
+    rgba(15,15,25,0.75);
+
+    backdrop-filter:blur(20px);
+
+    flex-shrink:0;
+}
+
+/* TOP LEFT */
+
+.topLeft{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+}
+
+/* CHAT AVATAR */
+
+.avatar{
+
+    width:48px;
+    height:48px;
+
+    border-radius:50%;
+
+    background:
+    linear-gradient(
+        135deg,
+        #a855f7,
+        #7c3aed
+    );
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-size:20px;
+
+    font-weight:600;
 }
 
 /* CHAT INFO */
 
 .chatInfo h2{
-    font-size:18px;
-    font-weight:600;
+    font-size:17px;
 }
 
-.chatInfo p{
+#chatStatus{
     font-size:12px;
-    color:#c084fc;
+    color:#aaa;
 }
 
-/* BACK BUTTON */
+/* BACK */
 
 .backBtn{
+
+    display:none;
+
     color:#d8b4fe;
 
     cursor:pointer;
@@ -282,13 +321,16 @@ body{
 ========================= */
 
 #typing{
-    padding:10px 24px 0;
 
-    font-size:13px;
-
-    color:#9f9f9f;
+    padding:8px 18px 0;
 
     min-height:22px;
+
+    font-size:12px;
+
+    color:#aaa;
+
+    flex-shrink:0;
 }
 
 /* =========================
@@ -296,51 +338,54 @@ body{
 ========================= */
 
 .messages{
+
     flex:1;
 
     overflow-y:auto;
 
-    padding:22px;
+    padding:18px;
 
     display:flex;
 
     flex-direction:column;
 
     gap:12px;
+
+    scroll-behavior:smooth;
+
+    -webkit-overflow-scrolling:touch;
 }
 
-/* SCROLLBAR */
+/* SCROLL */
 
 .messages::-webkit-scrollbar{
-    width:6px;
+    width:5px;
 }
 
 .messages::-webkit-scrollbar-thumb{
-    background:#a855f7;
+    background:#7c3aed;
     border-radius:10px;
 }
 
 /* =========================
-   MESSAGE BUBBLES
+   MESSAGE
 ========================= */
 
 .myMsg,
 .otherMsg{
 
-    max-width:72%;
+    max-width:75%;
 
     padding:14px 16px;
 
     border-radius:22px;
 
-    animation:pop 0.2s ease;
-
     word-wrap:break-word;
 
-    position:relative;
+    animation:pop 0.2s ease;
 }
 
-/* MY MESSAGE */
+/* MY */
 
 .myMsg{
 
@@ -353,41 +398,34 @@ body{
         #7c3aed
     );
 
-    color:white;
-
-    border-bottom-right-radius:6px;
-
-    box-shadow:
-    0 0 18px rgba(168,85,247,0.16);
+    border-bottom-right-radius:8px;
 }
 
-/* OTHER MESSAGE */
+/* OTHER */
 
 .otherMsg{
 
     align-self:flex-start;
 
-    background:#191522;
+    background:#1b1527;
 
-    border:1px solid rgba(255,255,255,0.05);
-
-    border-bottom-left-radius:6px;
+    border-bottom-left-radius:8px;
 }
 
 /* TIME */
 
 .msgTime{
 
-    font-size:11px;
-
     margin-top:6px;
 
-    opacity:0.75;
+    font-size:11px;
+
+    opacity:0.7;
 
     text-align:right;
 }
 
-/* POP ANIMATION */
+/* ANIMATION */
 
 @keyframes pop{
 
@@ -403,23 +441,26 @@ body{
 }
 
 /* =========================
-   INPUT AREA
+   INPUT
 ========================= */
 
 .bottom{
 
+    padding:14px;
+
     display:flex;
 
-    gap:12px;
+    gap:10px;
 
-    padding:18px;
-
-    border-top:1px solid rgba(255,255,255,0.05);
+    border-top:
+    1px solid rgba(255,255,255,0.05);
 
     background:
-    rgba(12,12,20,0.82);
+    rgba(12,12,20,0.85);
 
     backdrop-filter:blur(20px);
+
+    flex-shrink:0;
 }
 
 /* INPUT */
@@ -428,7 +469,7 @@ body{
 
     flex:1;
 
-    padding:16px;
+    height:52px;
 
     border:none;
 
@@ -436,30 +477,20 @@ body{
 
     border-radius:18px;
 
+    padding:0 18px;
+
     background:#1d1727;
 
     color:white;
 
     font-size:15px;
-
-    border:1px solid rgba(255,255,255,0.05);
-
-    transition:0.3s;
-}
-
-.bottom input:focus{
-
-    border:1px solid rgba(216,180,254,0.35);
-
-    box-shadow:
-    0 0 16px rgba(168,85,247,0.12);
 }
 
 /* BUTTON */
 
 .bottom button{
 
-    width:60px;
+    width:56px;
 
     border:none;
 
@@ -474,24 +505,12 @@ body{
 
     color:white;
 
-    font-size:20px;
-
     cursor:pointer;
 
-    transition:0.3s;
+    font-size:20px;
 
-    box-shadow:
-    0 0 18px rgba(168,85,247,0.18);
+    flex-shrink:0;
 }
-
-.bottom button:hover{
-
-    transform:scale(1.05);
-}
-
-/* =========================
-   MOBILE
-========================= */
 
 /* =========================
    MOBILE
@@ -500,26 +519,35 @@ body{
 @media(max-width:700px){
 
     .sidebar{
+
         width:100%;
+
+        height:100dvh;
+
         display:block;
     }
 
     .chat{
+
         display:none;
-    }
-
-    .chat.active{
-
-        display:flex;
 
         position:fixed;
 
-        inset:0;
+        top:0;
+        left:0;
 
         width:100%;
-        height:100%;
+        height:100dvh;
 
         z-index:999;
+    }
+
+    .chat.active{
+        display:flex;
+    }
+
+    .backBtn{
+        display:block;
     }
 
     .myMsg,
@@ -527,18 +555,14 @@ body{
         max-width:85%;
     }
 
-    .backBtn{
-        display:block;
+    .bottom{
+        padding-bottom:calc(12px + env(safe-area-inset-bottom));
     }
 }
 
 /* DESKTOP */
 
 @media(min-width:701px){
-
-    .backBtn{
-        display:none;
-    }
 
     .chat{
         display:flex !important;
@@ -547,10 +571,6 @@ body{
     .sidebar{
         display:block !important;
     }
-}#chatStatus{
-    font-size:12px;
-    color:#888;
-    transition:0.3s;
 }
 
 </style>
@@ -561,27 +581,25 @@ body{
 
 <div class="container">
 
-    <!-- ======================
-         SIDEBAR
-    ======================= -->
+    <!-- SIDEBAR -->
 
     <div class="sidebar">
 
         <div class="logo">
-            💀<span>Dark Chats</span>
+            💀 <span>Dark Chats</span>
         </div>
 
-        <!-- IMPORTANT FOR BACKEND -->
-        <div class="me" id="me"></div>
+        <div
+        class="me"
+        id="me">
+            Loading...
+        </div>
 
-        <!-- IMPORTANT FOR BACKEND -->
         <div id="users"></div>
 
     </div>
 
-    <!-- ======================
-         CHAT
-    ======================= -->
+    <!-- CHAT -->
 
     <div class="chat">
 
@@ -591,45 +609,56 @@ body{
 
             <div class="topLeft">
 
-                <div class="avatar" id="avatarBox">
+                <div
+                class="avatar"
+                id="avatarBox">
                     💀
                 </div>
 
                 <div class="chatInfo">
 
-                    <!-- IMPORTANT FOR BACKEND -->
                     <h2 id="chatWith">
                         Select User
                     </h2>
 
-                    <p id="chatStatus">
-                  offline
-                    </p>
+                    <div id="chatStatus">
+                        offline
+                    </div>
+
                 </div>
 
             </div>
 
-            <div class="backBtn" onclick="closeChat()">
+            <div
+            class="backBtn"
+            onclick="closeChat()">
                 Back
             </div>
 
         </div>
 
-        <!-- IMPORTANT FOR BACKEND -->
+        <!-- TYPING -->
+
         <div id="typing"></div>
 
-        <!-- IMPORTANT FOR BACKEND -->
-        <div class="messages" id="messages"></div>
+        <!-- MESSAGES -->
+
+        <div
+        class="messages"
+        id="messages"></div>
 
         <!-- INPUT -->
 
         <div class="bottom">
 
-            <!-- IMPORTANT FOR BACKEND -->
             <input
+
                 type="text"
+
                 id="msg"
+
                 placeholder="Type message..."
+
                 autocomplete="off"
             >
 
@@ -643,19 +672,8 @@ body{
 
 </div>
 
-<!-- ======================
-     SOCKET LIBRARIES
-====================== -->
-
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
-
-<!-- ======================
-     YOUR BACKEND JS
-====================== -->
-
-<script src="script.js?v=2"></script>
+<script src="script.js"></script>
 
 </body>
-
 </html>
+
