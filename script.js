@@ -1,3 +1,4 @@
+ ```javascript
 const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
@@ -30,21 +31,17 @@ let typingTimeout = null;
 
 let onlineUsers = [];
 
-/* Message cache */
+let currentPage = 0;
+
+const PAGE_SIZE = 50;
+
+let loadingMessages = false;
 
 const renderedMessages =
 new Set();
 
 const loadedMessageIds =
 new Set();
-
-/* Pagination */
-
-let currentPage = 0;
-
-const PAGE_SIZE = 50;
-
-let loadingMessages = false;
 
 /* =========================
    START APP
@@ -61,7 +58,7 @@ window.onload = async () => {
         "Logged as: " + me;
     }
 
-    /* Wake backend */
+    /* WAKE BACKEND */
 
     try {
 
@@ -78,6 +75,25 @@ window.onload = async () => {
     }
 
     /* SET ONLINE */
+
+    await setOnline();
+
+    connectSocket();
+
+    await loadOnlineUsers();
+
+    await loadUsers();
+
+    setupInputEvents();
+
+    setupScrollPagination();
+};
+
+/* =========================
+   ONLINE / OFFLINE
+========================= */
+
+async function setOnline() {
 
     try {
 
@@ -98,13 +114,64 @@ window.onload = async () => {
             e
         );
     }
+}
 
-    connectSocket();
+async function setOffline() {
 
-    loadOnlineUsers();
+    try {
 
-    loadUsers();
-};
+        navigator.sendBeacon(
+
+            API_BASE +
+            "/offline?user=" + me
+        );
+
+    } catch (e) {
+
+        console.log(
+            "Offline error:",
+            e
+        );
+    }
+}
+
+window.addEventListener(
+
+    "beforeunload",
+
+    () => {
+
+        setOffline();
+    }
+);
+
+window.addEventListener(
+
+    "visibilitychange",
+
+    async () => {
+
+        if (document.hidden) {
+
+            setOffline();
+
+        } else {
+
+            await setOnline();
+
+            await loadOnlineUsers();
+
+            await loadUsers();
+
+            if (selectedUser) {
+
+                updateChatStatus(
+                    selectedUser
+                );
+            }
+        }
+    }
+);
 
 /* =========================
    SOCKET
@@ -112,8 +179,12 @@ window.onload = async () => {
 
 function connectSocket() {
 
-    if (connected || reconnecting)
+    if (
+        connected ||
+        reconnecting
+    ) {
         return;
+    }
 
     reconnecting = true;
 
@@ -134,6 +205,12 @@ function connectSocket() {
 
         stompClient.debug = null;
 
+        stompClient.heartbeat.outgoing =
+        20000;
+
+        stompClient.heartbeat.incoming =
+        20000;
+
         stompClient.connect(
 
             {},
@@ -148,82 +225,9 @@ function connectSocket() {
                     "Socket connected"
                 );
 
-                /* =====================
-                   RECEIVE MESSAGE
-                ===================== */
+                subscribeMessages();
 
-               stompClient.subscribe(
-
-    "/topic/messages",
-
-    (msg) => {
-
-        const m =
-        JSON.parse(
-            msg.body
-        );
-
-        if (
-
-            (
-                m.from === me &&
-                m.to === selectedUser
-            )
-
-            ||
-
-            (
-                m.from === selectedUser &&
-                m.to === me
-            )
-        ) {
-
-            renderMessage(m);
-        }
-
-        loadUsers();
-    }
-);
-                /* =====================
-                   TYPING
-                ===================== */
-
-                stompClient.subscribe(
-
-                    "/topic/typing",
-
-                    (msg) => {
-
-                        const data =
-                        JSON.parse(
-                            msg.body
-                        );
-
-                        const typingBox =
-
-                        document.getElementById(
-                            "typing"
-                        );
-
-                        if (
-                            !typingBox
-                        ) return;
-
-                        if (
-
-                            data.from === selectedUser &&
-
-                            data.to === me
-                        ) {
-
-                            typingBox.innerText =
-
-                            data.isTyping
-                            ? "typing..."
-                            : "";
-                        }
-                    }
-                );
+                subscribeTyping();
             },
 
             (err) => {
@@ -262,6 +266,102 @@ function connectSocket() {
 
         }, 3000);
     }
+}
+
+/* =========================
+   SUBSCRIBE MESSAGE
+========================= */
+
+function subscribeMessages() {
+
+    stompClient.subscribe(
+
+        "/topic/messages",
+
+        (msg) => {
+
+            const m =
+            JSON.parse(msg.body);
+
+            const isCurrentChat =
+
+                (
+                    m.from === me &&
+                    m.to === selectedUser
+                )
+
+                ||
+
+                (
+                    m.from === selectedUser &&
+                    m.to === me
+                );
+
+            if (!isCurrentChat) {
+
+                loadUsers();
+
+                return;
+            }
+
+            const key =
+
+                m.id ||
+
+                `${m.from}_${m.to}_${m.content}_${m.timestamp}`;
+
+            if (
+                renderedMessages.has(key)
+            ) {
+                return;
+            }
+
+            renderMessage(m);
+
+            loadUsers();
+        }
+    );
+}
+
+/* =========================
+   SUBSCRIBE TYPING
+========================= */
+
+function subscribeTyping() {
+
+    stompClient.subscribe(
+
+        "/topic/typing",
+
+        (msg) => {
+
+            const data =
+            JSON.parse(msg.body);
+
+            const typingBox =
+
+            document.getElementById(
+                "typing"
+            );
+
+            if (!typingBox)
+                return;
+
+            if (
+
+                data.from === selectedUser &&
+
+                data.to === me
+            ) {
+
+                typingBox.innerText =
+
+                    data.isTyping
+                    ? "typing..."
+                    : "";
+            }
+        }
+    );
 }
 
 /* =========================
@@ -342,94 +442,35 @@ async function loadUsers() {
                 openChat(username);
             };
 
-            const wrapper =
-            document.createElement(
-                "div"
-            );
+            div.innerHTML = `
 
-            wrapper.style.display =
-            "flex";
+                <div class="userRow">
 
-            wrapper.style.justifyContent =
-            "space-between";
+                    <div>
 
-            wrapper.style.alignItems =
-            "center";
+                        <b>${username}</b>
 
-            wrapper.style.width =
-            "100%";
+                        <div
+                        class="statusText"
+                        style="
+                        color:${online ? '#4ade80' : '#888'}
+                        ">
 
-            const left =
-            document.createElement(
-                "div"
-            );
+                            ${online ? 'online' : 'offline'}
 
-            const name =
-            document.createElement(
-                "b"
-            );
+                        </div>
 
-            name.innerText =
-            username;
+                    </div>
 
-            const status =
-            document.createElement(
-                "div"
-            );
+                    <div
+                    class="statusDot"
+                    style="
+                    background:${online ? '#4ade80' : '#555'}
+                    ">
+                    </div>
 
-            status.style.fontSize =
-            "12px";
-
-            status.style.marginTop =
-            "4px";
-
-            status.style.color =
-
-                online
-                ? "#4ade80"
-                : "#888";
-
-            status.innerText =
-
-                online
-                ? "online"
-                : "offline";
-
-            left.appendChild(name);
-
-            left.appendChild(status);
-
-            const dot =
-            document.createElement(
-                "div"
-            );
-
-            dot.style.width =
-            "10px";
-
-            dot.style.height =
-            "10px";
-
-            dot.style.borderRadius =
-            "50%";
-
-            dot.style.background =
-
-                online
-                ? "#4ade80"
-                : "#555";
-
-            dot.style.boxShadow =
-
-                online
-                ? "0 0 8px #4ade80"
-                : "0 0 8px #555";
-
-            wrapper.appendChild(left);
-
-            wrapper.appendChild(dot);
-
-            div.appendChild(wrapper);
+                </div>
+            `;
 
             box.appendChild(div);
         });
@@ -480,13 +521,13 @@ function openChat(username) {
     username.charAt(0)
     .toUpperCase();
 
+    updateChatStatus(username);
+
     document.querySelector(
         ".chat"
     ).classList.add(
         "active"
     );
-
-    /* MOBILE */
 
     const sidebar =
 
@@ -510,6 +551,40 @@ function openChat(username) {
     document.getElementById(
         "msg"
     ).focus();
+}
+
+/* =========================
+   CHAT STATUS
+========================= */
+
+function updateChatStatus(username) {
+
+    const statusBox =
+
+    document.getElementById(
+        "chatStatus"
+    );
+
+    if (!statusBox)
+        return;
+
+    const online =
+
+    onlineUsers.includes(
+        username
+    );
+
+    statusBox.innerText =
+
+        online
+        ? "online"
+        : "offline";
+
+    statusBox.style.color =
+
+        online
+        ? "#4ade80"
+        : "#888";
 }
 
 /* =========================
@@ -541,10 +616,10 @@ function closeChat() {
    SEND MESSAGE
 ========================= */
 
-
 function send() {
 
     const input =
+
     document.getElementById(
         "msg"
     );
@@ -554,7 +629,8 @@ function send() {
     const content =
     input.value.trim();
 
-    if (!content) return;
+    if (!content)
+        return;
 
     if (!selectedUser) {
 
@@ -598,71 +674,15 @@ function send() {
         JSON.stringify(msg)
     );
 
+    renderMessage(msg);
+
     input.value = "";
 
     sendTyping(false);
 }
 
-
 /* =========================
-   ENTER + TYPING
-========================= */
-
-document.addEventListener(
-
-    "DOMContentLoaded",
-
-    () => {
-
-        const input =
-
-        document.getElementById(
-            "msg"
-        );
-
-        if (!input) return;
-
-        input.addEventListener(
-
-            "keypress",
-
-            (e) => {
-
-                if (
-                    e.key === "Enter"
-                ) {
-
-                    send();
-                }
-            }
-        );
-
-        input.addEventListener(
-
-            "input",
-
-            () => {
-
-                sendTyping(true);
-
-                clearTimeout(
-                    typingTimeout
-                );
-
-                typingTimeout =
-
-                setTimeout(() => {
-
-                    sendTyping(false);
-
-                }, 1000);
-            }
-        );
-    }
-);
-
-/* =========================
-   SEND TYPING
+   TYPING
 ========================= */
 
 function sendTyping(status) {
@@ -692,6 +712,59 @@ function sendTyping(status) {
 }
 
 /* =========================
+   INPUT EVENTS
+========================= */
+
+function setupInputEvents() {
+
+    const input =
+
+    document.getElementById(
+        "msg"
+    );
+
+    if (!input)
+        return;
+
+    input.addEventListener(
+
+        "keypress",
+
+        (e) => {
+
+            if (
+                e.key === "Enter"
+            ) {
+
+                send();
+            }
+        }
+    );
+
+    input.addEventListener(
+
+        "input",
+
+        () => {
+
+            sendTyping(true);
+
+            clearTimeout(
+                typingTimeout
+            );
+
+            typingTimeout =
+
+            setTimeout(() => {
+
+                sendTyping(false);
+
+            }, 1000);
+        }
+    );
+}
+
+/* =========================
    LOAD MESSAGES
 ========================= */
 
@@ -713,26 +786,24 @@ async function loadMessages() {
             `${API_BASE}/messages?user1=${me}&user2=${selectedUser}&page=${currentPage}&size=${PAGE_SIZE}`
         );
 
-        const data = await res.json();
+        const data =
+        await res.json();
 
         const box =
+
         document.getElementById(
             "messages"
         );
 
-        if (!box) return;
-
-        /* first page clear */
+        if (!box)
+            return;
 
         if (currentPage === 0) {
 
             box.innerHTML = "";
         }
 
-        /* IMPORTANT */
-        /* remove reverse() */
-
-        data.forEach(m => {
+        data.reverse().forEach(m => {
 
             const key =
 
@@ -754,15 +825,9 @@ async function loadMessages() {
             );
         });
 
-        /* auto scroll only first load */
-
         if (currentPage === 0) {
 
-            requestAnimationFrame(() => {
-
-                box.scrollTop =
-                box.scrollHeight;
-            });
+            smoothScrollBottom();
         }
 
     } catch (e) {
@@ -793,7 +858,8 @@ function renderMessage(
         "messages"
     );
 
-    if (!box) return;
+    if (!box)
+        return;
 
     const key =
 
@@ -841,126 +907,132 @@ function renderMessage(
             ).padStart(2, "0");
     }
 
-    const content =
-    document.createElement(
-        "div"
-    );
+    msgDiv.innerHTML = `
 
-    content.innerText =
-    m.content;
+        <div class="msgContent">
 
-    const timeDiv =
-    document.createElement(
-        "div"
-    );
+            ${m.content}
 
-    timeDiv.className =
-    "msgTime";
+        </div>
 
-    timeDiv.innerText =
-    time;
+        <div class="msgTime">
 
-    msgDiv.appendChild(
-        content
-    );
+            ${time}
 
-    msgDiv.appendChild(
-        timeDiv
-    );
-
-    /* prepend old msgs */
+        </div>
+    `;
 
     if (prepend) {
 
+        const oldHeight =
+        box.scrollHeight;
+
         box.prepend(msgDiv);
+
+        const newHeight =
+        box.scrollHeight;
+
+        box.scrollTop +=
+
+            newHeight -
+            oldHeight;
 
     } else {
 
         box.appendChild(msgDiv);
-    }
 
-    /* auto scroll only new msg */
-
-    if (!prepend) {
-
-        requestAnimationFrame(() => {
-
-            box.scrollTop =
-            box.scrollHeight;
-        });
+        smoothScrollBottom();
     }
 }
 
 /* =========================
-   SCROLL PAGINATION
+   SMOOTH SCROLL
 ========================= */
 
-document.addEventListener(
+function smoothScrollBottom() {
 
-    "DOMContentLoaded",
+    const box =
 
-    () => {
+    document.getElementById(
+        "messages"
+    );
 
-        const box =
+    if (!box)
+        return;
 
-        document.getElementById(
-            "messages"
-        );
+    requestAnimationFrame(() => {
 
-        if (!box) return;
+        box.scrollTo({
 
-        box.addEventListener(
+            top:
+            box.scrollHeight,
 
-            "scroll",
+            behavior:
+            "smooth"
+        });
+    });
+}
 
-            async () => {
+/* =========================
+   PAGINATION
+========================= */
 
-                if (
+function setupScrollPagination() {
 
-                    box.scrollTop <= 0 &&
+    const box =
 
-                    !loadingMessages
-                ) {
+    document.getElementById(
+        "messages"
+    );
 
-                    currentPage++;
+    if (!box)
+        return;
 
-                    await loadMessages();
-                }
+    box.addEventListener(
+
+        "scroll",
+
+        async () => {
+
+            if (
+
+                box.scrollTop <= 0 &&
+
+                !loadingMessages
+            ) {
+
+                currentPage++;
+
+                await loadMessages();
             }
-        );
-    }
-);
+        }
+    );
+}
 
 /* =========================
    AUTO REFRESH USERS
 ========================= */
 
-setInterval(() => {
+setInterval(
 
-    if (!document.hidden) {
+    async () => {
 
-        loadOnlineUsers();
+        if (!document.hidden) {
 
-        loadUsers();
-    }
+            await loadOnlineUsers();
 
-}, 15000);
+            await loadUsers();
 
-/* =========================
-   OFFLINE
-========================= */
+            if (selectedUser) {
 
-window.addEventListener(
+                updateChatStatus(
+                    selectedUser
+                );
+            }
+        }
 
-    "beforeunload",
+    },
 
-    () => {
-
-        navigator.sendBeacon(
-
-            API_BASE +
-
-            "/offline?user=" + me
-        );
-    }
+    5000
 );
+```
