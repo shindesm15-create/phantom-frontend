@@ -1,3 +1,4 @@
+
 const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
@@ -23,7 +24,7 @@ let connected = false;
 let typingTimeout = null;
 
 let onlineUsers = [];
-let activeChatUsers = [];
+let usersInChat = [];
 
 const renderedMessages =
 new Set();
@@ -52,7 +53,7 @@ window.onload = async () => {
 };
 
 /* =========================
-   ONLINE
+   ONLINE / OFFLINE
 ========================= */
 
 async function setOnline() {
@@ -81,15 +82,21 @@ function setOffline() {
 window.addEventListener(
     "beforeunload",
     () => {
+
+        sendChatPresence(false);
+
         setOffline();
     }
 );
 
 document.addEventListener(
     "visibilitychange",
+
     async () => {
 
         if (document.hidden) {
+
+            sendChatPresence(false);
 
             setOffline();
 
@@ -134,8 +141,7 @@ function connectSocket() {
 
             subscribeMessages();
             subscribeTyping();
-            subscribePresence();
-
+            subscribeChatPresence();
         },
 
         () => {
@@ -156,20 +162,64 @@ function connectSocket() {
 }
 
 /* =========================
-   PRESENCE
+   CHAT PRESENCE
 ========================= */
 
-function subscribePresence() {
+function sendChatPresence(inChat) {
+
+    if (!connected)
+        return;
+
+    stompClient.send(
+
+        "/app/chat-presence",
+
+        {},
+
+        JSON.stringify({
+
+            user: me,
+
+            inChat: inChat
+        })
+    );
+}
+
+function subscribeChatPresence() {
 
     stompClient.subscribe(
 
-        "/topic/presence",
+        "/topic/chat-presence",
 
-        async () => {
+        (msg) => {
 
-            await refreshUsers();
+            const data =
+            JSON.parse(msg.body);
+
+            if (data.inChat) {
+
+                if (
+                    !usersInChat.includes(
+                        data.user
+                    )
+                ) {
+
+                    usersInChat.push(
+                        data.user
+                    );
+                }
+
+            } else {
+
+                usersInChat =
+                usersInChat.filter(
+
+                    u => u !== data.user
+                );
+            }
 
             updateChatStatus();
+            loadUsers();
         }
     );
 }
@@ -248,7 +298,9 @@ function subscribeTyping() {
                 return;
 
             if (
+
                 data.from === selectedUser &&
+
                 data.to === me
             ) {
 
@@ -259,6 +311,32 @@ function subscribeTyping() {
                     : "";
             }
         }
+    );
+}
+
+function sendTyping(status) {
+
+    if (
+        !selectedUser ||
+        !connected
+    ) {
+        return;
+    }
+
+    stompClient.send(
+
+        "/app/typing",
+
+        {},
+
+        JSON.stringify({
+
+            from: me,
+
+            to: selectedUser,
+
+            isTyping: status
+        })
     );
 }
 
@@ -318,6 +396,9 @@ async function loadUsers() {
             const online =
             onlineUsers.includes(user);
 
+            const inChat =
+            usersInChat.includes(user);
+
             const div =
             document.createElement("div");
 
@@ -325,22 +406,56 @@ async function loadUsers() {
             "user";
 
             div.onclick = () => {
+
                 openChat(user);
             };
 
             div.innerHTML = `
 
-                <div>
-                    <b>${user}</b>
-                </div>
-
                 <div style="
-                    width:10px;
-                    height:10px;
-                    border-radius:50%;
-                    background:
-                    ${online ? '#4ade80' : '#555'};
-                "></div>
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                ">
+
+                    <div style="
+                        width:42px;
+                        height:42px;
+                        border-radius:50%;
+                        background:#222;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:20px;
+                    ">
+
+                        ${inChat ? "💀" : ""}
+
+                    </div>
+
+                    <div>
+
+                        <div>
+                            <b>${user}</b>
+                        </div>
+
+                        <div style="
+                            font-size:12px;
+                            color:
+                            ${online ? '#4ade80' : '#888'};
+                        ">
+
+                            ${
+                                online
+                                ? "online"
+                                : "offline"
+                            }
+
+                        </div>
+
+                    </div>
+
+                </div>
             `;
 
             box.appendChild(div);
@@ -357,7 +472,13 @@ async function openChat(user) {
 
     selectedUser = user;
 
+    sendChatPresence(true);
+
     renderedMessages.clear();
+
+    document.getElementById(
+        "messages"
+    ).innerHTML = "";
 
     document.getElementById(
         "chatWith"
@@ -370,17 +491,11 @@ async function openChat(user) {
     user.charAt(0)
     .toUpperCase();
 
-    document.getElementById(
-        "messages"
-    ).innerHTML = "";
-
     updateChatStatus();
 
     await loadMessages();
 
-    if (
-        window.innerWidth <= 700
-    ) {
+    if (window.innerWidth <= 700) {
 
         document.querySelector(
             ".sidebar"
@@ -392,6 +507,27 @@ async function openChat(user) {
         ).style.display =
         "flex";
     }
+}
+
+/* =========================
+   CLOSE CHAT
+========================= */
+
+function closeChat() {
+
+    sendChatPresence(false);
+
+    selectedUser = "";
+
+    document.querySelector(
+        ".chat"
+    ).style.display =
+    "none";
+
+    document.querySelector(
+        ".sidebar"
+    ).style.display =
+    "block";
 }
 
 /* =========================
@@ -408,6 +544,11 @@ function updateChatStatus() {
         selectedUser
     );
 
+    const inChat =
+    usersInChat.includes(
+        selectedUser
+    );
+
     const statusBox =
     document.getElementById(
         "chatStatus"
@@ -416,19 +557,30 @@ function updateChatStatus() {
     if (!statusBox)
         return;
 
-    statusBox.innerText =
-    online
-    ? "online"
-    : "offline";
+    if (inChat) {
 
-    statusBox.style.color =
-    online
-    ? "#4ade80"
-    : "#888";
+        statusBox.innerHTML =
+        "💀 in chat";
+
+        statusBox.style.color =
+        "#4ade80";
+
+    } else {
+
+        statusBox.innerHTML =
+        online
+        ? "online"
+        : "offline";
+
+        statusBox.style.color =
+        online
+        ? "#4ade80"
+        : "#888";
+    }
 }
 
 /* =========================
-   SEND
+   SEND MESSAGE
 ========================= */
 
 function send() {
@@ -468,6 +620,14 @@ function send() {
         Date.now()
     };
 
+    if (
+        renderedMessages.has(
+            msg.id
+        )
+    ) {
+        return;
+    }
+
     renderedMessages.add(
         msg.id
     );
@@ -491,7 +651,52 @@ function send() {
 }
 
 /* =========================
-   RENDER
+   LOAD MESSAGES
+========================= */
+
+async function loadMessages() {
+
+    try {
+
+        const res =
+        await fetch(
+
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+        );
+
+        const data =
+        await res.json();
+
+        data.forEach(m => {
+
+            if (
+                renderedMessages.has(
+                    m.id
+                )
+            ) {
+                return;
+            }
+
+            renderedMessages.add(
+                m.id
+            );
+
+            renderMessage(m);
+        });
+
+        smoothScrollBottom();
+
+    } catch(e){
+
+        console.log(
+            "Load error",
+            e
+        );
+    }
+}
+
+/* =========================
+   RENDER MESSAGE
 ========================= */
 
 function renderMessage(m) {
@@ -513,9 +718,10 @@ function renderMessage(m) {
     );
 
     div.className =
-    mine
-    ? "myMsg"
-    : "otherMsg";
+
+        mine
+        ? "myMsg"
+        : "otherMsg";
 
     let time = "";
 
@@ -550,36 +756,6 @@ function renderMessage(m) {
 }
 
 /* =========================
-   TYPING SEND
-========================= */
-
-function sendTyping(status) {
-
-    if (
-        !selectedUser ||
-        !connected
-    ) {
-        return;
-    }
-
-    stompClient.send(
-
-        "/app/typing",
-
-        {},
-
-        JSON.stringify({
-
-            from: me,
-
-            to: selectedUser,
-
-            isTyping: status
-        })
-    );
-}
-
-/* =========================
    INPUT EVENTS
 ========================= */
 
@@ -602,6 +778,7 @@ function setupInputEvents() {
             if (
                 e.key === "Enter"
             ) {
+
                 send();
             }
         }
@@ -620,6 +797,7 @@ function setupInputEvents() {
             );
 
             typingTimeout =
+
             setTimeout(() => {
 
                 sendTyping(false);
@@ -627,46 +805,6 @@ function setupInputEvents() {
             },1000);
         }
     );
-}
-
-/* =========================
-   LOAD MESSAGES
-========================= */
-
-async function loadMessages() {
-
-    try {
-
-        const res = await fetch(
-
-            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
-        );
-
-        const data =
-        await res.json();
-
-        data.forEach(m => {
-
-            if (
-                renderedMessages.has(m.id)
-            ) {
-                return;
-            }
-
-            renderedMessages.add(m.id);
-
-            renderMessage(m);
-        });
-
-        smoothScrollBottom();
-
-    } catch(e){
-
-        console.log(
-            "Load message error",
-            e
-        );
-    }
 }
 
 /* =========================
@@ -686,8 +824,12 @@ function smoothScrollBottom() {
     requestAnimationFrame(() => {
 
         box.scrollTo({
-            top: box.scrollHeight,
-            behavior: "smooth"
+
+            top:
+            box.scrollHeight,
+
+            behavior:
+            "smooth"
         });
 
     });
@@ -712,3 +854,4 @@ setInterval(
 
     3000
 );
+
