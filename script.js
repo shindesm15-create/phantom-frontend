@@ -1,4 +1,4 @@
- ```javascript
+ 
 const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
@@ -1035,4 +1035,3 @@ setInterval(
 
     5000
 );
-```
