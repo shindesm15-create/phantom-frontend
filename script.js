@@ -28,8 +28,6 @@ let typingTimeout = null;
 
 let onlineUsers = [];
 
-let usersInChat = [];
-
 const renderedMessages =
 new Set();
 
@@ -39,26 +37,22 @@ new Set();
 
 window.onload = async () => {
 
-    const meBox =
-    document.getElementById("me");
-
-    if (meBox) {
-
-        meBox.innerText =
-        "Logged as: " + me;
-    }
-
-    await setOnline();
+    document.getElementById(
+        "me"
+    ).innerText =
+    "Logged as: " + me;
 
     connectSocket();
 
-    await refreshUsers();
+    await loadUsers();
 
     setupInputEvents();
+
+    await setOnline();
 };
 
 /* =========================
-   ONLINE OFFLINE
+   ONLINE
 ========================= */
 
 async function setOnline() {
@@ -75,10 +69,7 @@ async function setOnline() {
             }
         );
 
-    } catch(e) {
-
-        console.log(e);
-    }
+    } catch(e){}
 }
 
 function setOffline() {
@@ -90,42 +81,13 @@ function setOffline() {
     );
 }
 
-/* =========================
-   WINDOW EVENTS
-========================= */
-
 window.addEventListener(
 
     "beforeunload",
 
     () => {
 
-        sendChatPresence(false);
-
         setOffline();
-    }
-);
-
-document.addEventListener(
-
-    "visibilitychange",
-
-    async () => {
-
-        if (document.hidden) {
-
-            sendChatPresence(false);
-
-            setOffline();
-
-        } else {
-
-            await setOnline();
-
-            await refreshUsers();
-
-            updateChatStatus();
-        }
     }
 );
 
@@ -155,22 +117,21 @@ function connectSocket() {
             connected = true;
 
             console.log(
-                "Connected"
+                "Socket Connected"
             );
 
             subscribeMessages();
 
             subscribeTyping();
-
-            subscribeChatPresence();
         },
 
-        () => {
+        (e) => {
 
             connected = false;
 
             console.log(
-                "Disconnected"
+                "Socket Error",
+                e
             );
 
             setTimeout(() => {
@@ -183,71 +144,7 @@ function connectSocket() {
 }
 
 /* =========================
-   CHAT PRESENCE
-========================= */
-
-function sendChatPresence(inChat) {
-
-    if (!connected)
-        return;
-
-    stompClient.send(
-
-        "/app/chat-presence",
-
-        {},
-
-        JSON.stringify({
-
-            user: me,
-
-            inChat: inChat
-        })
-    );
-}
-
-function subscribeChatPresence() {
-
-    stompClient.subscribe(
-
-        "/topic/chat-presence",
-
-        (msg) => {
-
-            const data =
-            JSON.parse(msg.body);
-
-            if (data.inChat) {
-
-                if (
-                    !usersInChat.includes(
-                        data.user
-                    )
-                ) {
-
-                    usersInChat.push(
-                        data.user
-                    );
-                }
-
-            } else {
-
-                usersInChat =
-                usersInChat.filter(
-
-                    u => u !== data.user
-                );
-            }
-
-            loadUsers();
-
-            updateChatStatus();
-        }
-    );
-}
-
-/* =========================
-   MESSAGES
+   RECEIVE MESSAGE
 ========================= */
 
 function subscribeMessages() {
@@ -261,7 +158,7 @@ function subscribeMessages() {
             const m =
             JSON.parse(msg.body);
 
-            const currentChat =
+            const validChat =
 
                 (
                     m.from === me &&
@@ -275,19 +172,20 @@ function subscribeMessages() {
                     m.to === me
                 );
 
-            if (!currentChat)
+            if (!validChat)
                 return;
 
-            const key =
-            m.id;
-
             if (
-                renderedMessages.has(key)
+                renderedMessages.has(
+                    m.id
+                )
             ) {
                 return;
             }
 
-            renderedMessages.add(key);
+            renderedMessages.add(
+                m.id
+            );
 
             renderMessage(m);
 
@@ -311,13 +209,10 @@ function subscribeTyping() {
             const data =
             JSON.parse(msg.body);
 
-            const typingBox =
+            const typing =
             document.getElementById(
                 "typing"
             );
-
-            if (!typingBox)
-                return;
 
             if (
 
@@ -326,7 +221,7 @@ function subscribeTyping() {
                 data.to === me
             ) {
 
-                typingBox.innerText =
+                typing.innerText =
 
                     data.isTyping
                     ? "typing..."
@@ -341,9 +236,7 @@ function sendTyping(status) {
     if (
         !selectedUser ||
         !connected
-    ) {
-        return;
-    }
+    ) return;
 
     stompClient.send(
 
@@ -366,30 +259,6 @@ function sendTyping(status) {
    USERS
 ========================= */
 
-async function refreshUsers() {
-
-    await loadOnlineUsers();
-
-    await loadUsers();
-}
-
-async function loadOnlineUsers() {
-
-    try {
-
-        const res =
-
-        await fetch(
-            API_BASE +
-            "/online-users"
-        );
-
-        onlineUsers =
-        await res.json();
-
-    } catch(e){}
-}
-
 async function loadUsers() {
 
     try {
@@ -404,13 +273,9 @@ async function loadUsers() {
         await res.json();
 
         const box =
-
         document.getElementById(
             "users"
         );
-
-        if (!box)
-            return;
 
         box.innerHTML = "";
 
@@ -418,18 +283,6 @@ async function loadUsers() {
 
             if (user === me)
                 return;
-
-            const online =
-
-            onlineUsers.includes(
-                user
-            );
-
-            const inChat =
-
-            usersInChat.includes(
-                user
-            );
 
             const div =
             document.createElement(
@@ -450,13 +303,9 @@ async function loadUsers() {
 
                     <div class="snapAvatar">
 
-                        ${
-                            inChat
-                            ? "💀"
-                            : user
-                              .charAt(0)
-                              .toUpperCase()
-                        }
+                        ${user
+                            .charAt(0)
+                            .toUpperCase()}
 
                     </div>
 
@@ -464,26 +313,6 @@ async function loadUsers() {
 
                         <div class="userName">
                             ${user}
-                        </div>
-
-                        <div class="userStatus"
-                        style="
-                            color:
-                            ${
-                                online
-                                ? "#4ade80"
-                                : "#888"
-                            };
-                        ">
-
-                            ${
-                                inChat
-                                ? "in chat"
-                                : online
-                                ? "online"
-                                : "offline"
-                            }
-
                         </div>
 
                     </div>
@@ -496,7 +325,10 @@ async function loadUsers() {
 
     } catch(e){
 
-        console.log(e);
+        console.log(
+            "User Load Error",
+            e
+        );
     }
 }
 
@@ -508,8 +340,6 @@ async function openChat(user) {
 
     selectedUser = user;
 
-    sendChatPresence(true);
-
     renderedMessages.clear();
 
     document.getElementById(
@@ -520,11 +350,18 @@ async function openChat(user) {
         "chatWith"
     ).innerText = user;
 
-    updateHeaderAvatar();
+    document.getElementById(
+        "avatarBox"
+    ).innerText =
 
-    updateChatStatus();
+    user.charAt(0)
+    .toUpperCase();
 
-    await loadMessages();
+    document.querySelector(
+        ".chat"
+    ).classList.add(
+        "active"
+    );
 
     if (
         window.innerWidth <= 700
@@ -534,12 +371,9 @@ async function openChat(user) {
             ".sidebar"
         ).style.display =
         "none";
-
-        document.querySelector(
-            ".chat"
-        ).style.display =
-        "flex";
     }
+
+    await loadMessages();
 }
 
 /* =========================
@@ -548,18 +382,15 @@ async function openChat(user) {
 
 function closeChat() {
 
-    sendChatPresence(false);
-
-    selectedUser = "";
+    document.querySelector(
+        ".chat"
+    ).classList.remove(
+        "active"
+    );
 
     if (
         window.innerWidth <= 700
     ) {
-
-        document.querySelector(
-            ".chat"
-        ).style.display =
-        "none";
 
         document.querySelector(
             ".sidebar"
@@ -569,115 +400,84 @@ function closeChat() {
 }
 
 /* =========================
-   HEADER AVATAR
+   LOAD OLD MESSAGES
 ========================= */
 
-function updateHeaderAvatar() {
+async function loadMessages() {
 
-    const avatar =
-    document.getElementById(
-        "avatarBox"
-    );
+    try {
 
-    if (!avatar)
-        return;
+        const res = await fetch(
 
-    const inChat =
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+        );
 
-    usersInChat.includes(
-        selectedUser
-    );
+        const data =
+        await res.json();
 
-    avatar.innerText =
+        document.getElementById(
+            "messages"
+        ).innerHTML = "";
 
-        inChat
-        ? "💀"
-        : selectedUser
-          .charAt(0)
-          .toUpperCase();
-}
+        data.forEach(m => {
 
-/* =========================
-   STATUS
-========================= */
+            if (
+                renderedMessages.has(
+                    m.id
+                )
+            ) return;
 
-function updateChatStatus() {
+            renderedMessages.add(
+                m.id
+            );
 
-    if (!selectedUser)
-        return;
+            renderMessage(m);
+        });
 
-    const online =
+        smoothScrollBottom();
 
-    onlineUsers.includes(
-        selectedUser
-    );
+    } catch(e){
 
-    const inChat =
-
-    usersInChat.includes(
-        selectedUser
-    );
-
-    const statusBox =
-
-    document.getElementById(
-        "chatStatus"
-    );
-
-    if (!statusBox)
-        return;
-
-    if (inChat) {
-
-        statusBox.innerText =
-        "in chat";
-
-        statusBox.style.color =
-        "#4ade80";
-
-    } else {
-
-        statusBox.innerText =
-
-            online
-            ? "online"
-            : "offline";
-
-        statusBox.style.color =
-
-            online
-            ? "#4ade80"
-            : "#888";
+        console.log(
+            "Message Load Error",
+            e
+        );
     }
-
-    updateHeaderAvatar();
 }
 
 /* =========================
-   SEND MESSAGE
+   SEND
 ========================= */
 
 function send() {
 
-    const input =
+    if (!connected) {
 
+        alert(
+            "Socket not connected"
+        );
+
+        return;
+    }
+
+    if (!selectedUser) {
+
+        alert(
+            "Select user"
+        );
+
+        return;
+    }
+
+    const input =
     document.getElementById(
         "msg"
     );
-
-    if (!input)
-        return;
 
     const content =
     input.value.trim();
 
     if (!content)
-        return;
-
-    if (!selectedUser)
-        return;
-
-    if (!connected)
         return;
 
     const msg = {
@@ -694,14 +494,6 @@ function send() {
         timestamp:
         Date.now()
     };
-
-    if (
-        renderedMessages.has(
-            msg.id
-        )
-    ) {
-        return;
-    }
 
     renderedMessages.add(
         msg.id
@@ -726,62 +518,15 @@ function send() {
 }
 
 /* =========================
-   LOAD MESSAGES
-========================= */
-
-async function loadMessages() {
-
-    try {
-
-        const res =
-
-        await fetch(
-
-            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
-        );
-
-        const data =
-        await res.json();
-
-        data.forEach(m => {
-
-            if (
-                renderedMessages.has(
-                    m.id
-                )
-            ) {
-                return;
-            }
-
-            renderedMessages.add(
-                m.id
-            );
-
-            renderMessage(m);
-        });
-
-        smoothScrollBottom();
-
-    } catch(e){
-
-        console.log(e);
-    }
-}
-
-/* =========================
    RENDER
 ========================= */
 
 function renderMessage(m) {
 
     const box =
-
     document.getElementById(
         "messages"
     );
-
-    if (!box)
-        return;
 
     const mine =
     m.from === me;
@@ -797,23 +542,18 @@ function renderMessage(m) {
         ? "myMsg"
         : "otherMsg";
 
-    let time = "";
+    const d =
+    new Date(m.timestamp);
 
-    if (m.timestamp) {
+    const time =
 
-        const d =
-        new Date(m.timestamp);
+        d.getHours() +
 
-        time =
+        ":" +
 
-            d.getHours() +
-
-            ":" +
-
-            String(
-                d.getMinutes()
-            ).padStart(2,"0");
-    }
+        String(
+            d.getMinutes()
+        ).padStart(2,"0");
 
     div.innerHTML = `
 
@@ -830,19 +570,15 @@ function renderMessage(m) {
 }
 
 /* =========================
-   INPUT
+   INPUT EVENTS
 ========================= */
 
 function setupInputEvents() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
-
-    if (!input)
-        return;
 
     input.addEventListener(
 
@@ -889,44 +625,15 @@ function setupInputEvents() {
 function smoothScrollBottom() {
 
     const box =
-
     document.getElementById(
         "messages"
     );
 
-    if (!box)
-        return;
+    setTimeout(() => {
 
-    requestAnimationFrame(() => {
+        box.scrollTop =
+        box.scrollHeight;
 
-        box.scrollTo({
-
-            top:
-            box.scrollHeight,
-
-            behavior:
-            "smooth"
-        });
-
-    });
+    },50);
 }
 
-/* =========================
-   AUTO REFRESH
-========================= */
-
-setInterval(
-
-    async () => {
-
-        if (!document.hidden) {
-
-            await refreshUsers();
-
-            updateChatStatus();
-        }
-
-    },
-
-    3000
-);
