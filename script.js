@@ -9,7 +9,6 @@ const me =
 localStorage.getItem("user");
 
 if (!me) {
-
     window.location.href =
     "login.html";
 }
@@ -19,16 +18,12 @@ if (!me) {
 ========================= */
 
 let selectedUser = "";
-
 let stompClient = null;
-
 let connected = false;
-
 let typingTimeout = null;
 
 let onlineUsers = [];
-
-/* DUPLICATE BLOCK */
+let activeChatUsers = [];
 
 const renderedMessages =
 new Set();
@@ -40,12 +35,9 @@ new Set();
 window.onload = async () => {
 
     const meBox =
-    document.getElementById(
-        "me"
-    );
+    document.getElementById("me");
 
     if (meBox) {
-
         meBox.innerText =
         "Logged as: " + me;
     }
@@ -54,9 +46,7 @@ window.onload = async () => {
 
     connectSocket();
 
-    await loadOnlineUsers();
-
-    await loadUsers();
+    await refreshUsers();
 
     setupInputEvents();
 };
@@ -70,10 +60,8 @@ async function setOnline() {
     try {
 
         await fetch(
-
             API_BASE +
             "/online?user=" + me,
-
             {
                 method:"POST"
             }
@@ -85,26 +73,20 @@ async function setOnline() {
 function setOffline() {
 
     navigator.sendBeacon(
-
         API_BASE +
         "/offline?user=" + me
     );
 }
 
 window.addEventListener(
-
     "beforeunload",
-
     () => {
-
         setOffline();
     }
 );
 
 document.addEventListener(
-
     "visibilitychange",
-
     async () => {
 
         if (document.hidden) {
@@ -115,9 +97,7 @@ document.addEventListener(
 
             await setOnline();
 
-            await loadOnlineUsers();
-
-            await loadUsers();
+            await refreshUsers();
 
             updateChatStatus();
         }
@@ -131,7 +111,6 @@ document.addEventListener(
 function connectSocket() {
 
     const socket =
-
     new SockJS(
         API_BASE + "/chat"
     );
@@ -154,8 +133,9 @@ function connectSocket() {
             );
 
             subscribeMessages();
-
             subscribeTyping();
+            subscribePresence();
+
         },
 
         () => {
@@ -171,6 +151,25 @@ function connectSocket() {
                 connectSocket();
 
             },3000);
+        }
+    );
+}
+
+/* =========================
+   PRESENCE
+========================= */
+
+function subscribePresence() {
+
+    stompClient.subscribe(
+
+        "/topic/presence",
+
+        async () => {
+
+            await refreshUsers();
+
+            updateChatStatus();
         }
     );
 }
@@ -208,12 +207,7 @@ function subscribeMessages() {
                 return;
 
             const key =
-
-                m.id ||
-
-                `${m.from}_${m.content}_${m.timestamp}`;
-
-            /* BLOCK DUPLICATE */
+            m.id;
 
             if (
                 renderedMessages.has(key)
@@ -246,19 +240,15 @@ function subscribeTyping() {
             JSON.parse(msg.body);
 
             const typingBox =
-
             document.getElementById(
                 "typing"
             );
 
-            if (
-                !typingBox
-            ) return;
+            if (!typingBox)
+                return;
 
             if (
-
                 data.from === selectedUser &&
-
                 data.to === me
             ) {
 
@@ -276,12 +266,17 @@ function subscribeTyping() {
    USERS
 ========================= */
 
+async function refreshUsers() {
+
+    await loadOnlineUsers();
+    await loadUsers();
+}
+
 async function loadOnlineUsers() {
 
     try {
 
         const res =
-
         await fetch(
             API_BASE +
             "/online-users"
@@ -298,7 +293,6 @@ async function loadUsers() {
     try {
 
         const res =
-
         await fetch(
             API_BASE + "/users"
         );
@@ -307,7 +301,6 @@ async function loadUsers() {
         await res.json();
 
         const box =
-
         document.getElementById(
             "users"
         );
@@ -323,30 +316,22 @@ async function loadUsers() {
                 return;
 
             const online =
-
-            onlineUsers.includes(
-                user
-            );
+            onlineUsers.includes(user);
 
             const div =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
             div.className =
             "user";
 
             div.onclick = () => {
-
                 openChat(user);
             };
 
             div.innerHTML = `
 
                 <div>
-
                     <b>${user}</b>
-
                 </div>
 
                 <div style="
@@ -393,8 +378,6 @@ async function openChat(user) {
 
     await loadMessages();
 
-    /* MOBILE */
-
     if (
         window.innerWidth <= 700
     ) {
@@ -408,34 +391,6 @@ async function openChat(user) {
             ".chat"
         ).style.display =
         "flex";
-
-        document.querySelector(
-            ".chat"
-        ).classList.add(
-            "active"
-        );
-    }
-}
-
-/* =========================
-   CLOSE CHAT
-========================= */
-
-function closeChat() {
-
-    if (
-        window.innerWidth <= 700
-    ) {
-
-        document.querySelector(
-            ".chat"
-        ).style.display =
-        "none";
-
-        document.querySelector(
-            ".sidebar"
-        ).style.display =
-        "block";
     }
 }
 
@@ -449,13 +404,11 @@ function updateChatStatus() {
         return;
 
     const online =
-
     onlineUsers.includes(
         selectedUser
     );
 
     const statusBox =
-
     document.getElementById(
         "chatStatus"
     );
@@ -464,16 +417,14 @@ function updateChatStatus() {
         return;
 
     statusBox.innerText =
-
-        online
-        ? "online"
-        : "offline";
+    online
+    ? "online"
+    : "offline";
 
     statusBox.style.color =
-
-        online
-        ? "#4ade80"
-        : "#888";
+    online
+    ? "#4ade80"
+    : "#888";
 }
 
 /* =========================
@@ -517,22 +468,13 @@ function send() {
         Date.now()
     };
 
-    /* SAVE ID */
-
     renderedMessages.add(
         msg.id
     );
 
-    /* SHOW MESSAGE */
-
-    renderMessage({
-        ...msg,
-        local:true
-    });
+    renderMessage(msg);
 
     smoothScrollBottom();
-
-    /* SEND TO BACKEND */
 
     stompClient.send(
 
@@ -549,36 +491,18 @@ function send() {
 }
 
 /* =========================
-   RENDER MESSAGE
+   RENDER
 ========================= */
 
 function renderMessage(m) {
 
     const box =
-
     document.getElementById(
         "messages"
     );
 
     if (!box)
         return;
-
-    const key =
-
-        m.id ||
-
-        `${m.from}_${m.content}_${m.timestamp}`;
-
-    /* BLOCK DUPLICATE */
-
-    if (
-        renderedMessages.has(key) &&
-        !m.local
-    ) {
-        return;
-    }
-
-    renderedMessages.add(key);
 
     const mine =
     m.from === me;
@@ -589,10 +513,9 @@ function renderMessage(m) {
     );
 
     div.className =
-
-        mine
-        ? "myMsg"
-        : "otherMsg";
+    mine
+    ? "myMsg"
+    : "otherMsg";
 
     let time = "";
 
@@ -615,20 +538,17 @@ function renderMessage(m) {
     div.innerHTML = `
 
         <div>
-
             ${m.content}
-
         </div>
 
         <div class="msgTime">
-
             ${time}
-
         </div>
     `;
 
     box.appendChild(div);
 }
+
 /* =========================
    TYPING SEND
 ========================= */
@@ -666,7 +586,6 @@ function sendTyping(status) {
 function setupInputEvents() {
 
     const input =
-
     document.getElementById(
         "msg"
     );
@@ -683,7 +602,6 @@ function setupInputEvents() {
             if (
                 e.key === "Enter"
             ) {
-
                 send();
             }
         }
@@ -702,7 +620,6 @@ function setupInputEvents() {
             );
 
             typingTimeout =
-
             setTimeout(() => {
 
                 sendTyping(false);
@@ -730,19 +647,13 @@ async function loadMessages() {
 
         data.forEach(m => {
 
-            const key =
-
-                m.id ||
-
-                `${m.from}_${m.content}_${m.timestamp}`;
-
             if (
-                renderedMessages.has(key)
+                renderedMessages.has(m.id)
             ) {
                 return;
             }
 
-            renderedMessages.add(key);
+            renderedMessages.add(m.id);
 
             renderMessage(m);
         });
@@ -759,78 +670,12 @@ async function loadMessages() {
 }
 
 /* =========================
-   RENDER
-========================= */
-
-function renderMessage(m) {
-
-    const box =
-
-    document.getElementById(
-        "messages"
-    );
-
-    if (!box)
-        return;
-
-    const mine =
-    m.from === me;
-
-    const div =
-    document.createElement(
-        "div"
-    );
-
-    div.className =
-
-        mine
-        ? "myMsg"
-        : "otherMsg";
-
-    let time = "";
-
-    if (m.timestamp) {
-
-        const d =
-        new Date(m.timestamp);
-
-        time =
-
-            d.getHours() +
-
-            ":" +
-
-            String(
-                d.getMinutes()
-            ).padStart(2,"0");
-    }
-
-    div.innerHTML = `
-
-        <div>
-
-            ${m.content}
-
-        </div>
-
-        <div class="msgTime">
-
-            ${time}
-
-        </div>
-    `;
-
-    box.appendChild(div);
-}
-
-/* =========================
    SCROLL
 ========================= */
 
 function smoothScrollBottom() {
 
     const box =
-
     document.getElementById(
         "messages"
     );
@@ -838,12 +683,14 @@ function smoothScrollBottom() {
     if (!box)
         return;
 
-    setTimeout(() => {
+    requestAnimationFrame(() => {
 
-        box.scrollTop =
-        box.scrollHeight;
+        box.scrollTo({
+            top: box.scrollHeight,
+            behavior: "smooth"
+        });
 
-    },50);
+    });
 }
 
 /* =========================
@@ -856,9 +703,7 @@ setInterval(
 
         if (!document.hidden) {
 
-            await loadOnlineUsers();
-
-            await loadUsers();
+            await refreshUsers();
 
             updateChatStatus();
         }
