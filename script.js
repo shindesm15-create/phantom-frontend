@@ -726,13 +726,25 @@ async function loadMessages() {
 function renderMessage(m) {
 
     const box =
-
     document.getElementById(
         "messages"
     );
 
-    if (!box)
+    if (!box) return;
+
+    const key =
+        m.id ||
+        `${m.from}_${m.content}_${m.timestamp}`;
+
+    /* PREVENT DUPLICATE HTML */
+
+    if (
+        document.getElementById(
+            "msg_" + key
+        )
+    ) {
         return;
+    }
 
     const mine =
     m.from === me;
@@ -742,8 +754,10 @@ function renderMessage(m) {
         "div"
     );
 
-    div.className =
+    div.id =
+    "msg_" + key;
 
+    div.className =
         mine
         ? "myMsg"
         : "otherMsg";
@@ -756,25 +770,16 @@ function renderMessage(m) {
         new Date(m.timestamp);
 
         time =
-
             d.getHours() +
-
             ":" +
-
             String(
                 d.getMinutes()
-            ).padStart(2,"0");
+            ).padStart(2, "0");
     }
 
     div.innerHTML = `
-
-        <div>
-            ${m.content}
-        </div>
-
-        <div class="msgTime">
-            ${time}
-        </div>
+        <div>${m.content}</div>
+        <div class="msgTime">${time}</div>
     `;
 
     box.appendChild(div);
