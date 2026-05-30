@@ -183,6 +183,7 @@ function connectSocket() {
    RECEIVE MESSAGE
 ========================= */
 
+
 function subscribeMessages() {
 
     if (messageSubscription) {
@@ -198,6 +199,21 @@ function subscribeMessages() {
             const m =
             JSON.parse(msg.body);
 
+            /* MY MESSAGE ALREADY SHOWN IN send() */
+
+            if (m.from === me) {
+                return;
+            }
+
+            /* ONLY SHOW CURRENT CHAT */
+
+            if (
+                m.from !== selectedUser ||
+                m.to !== me
+            ) {
+                return;
+            }
+
             const key =
                 m.id ||
                 `${m.from}_${m.content}_${m.timestamp}`;
@@ -210,29 +226,13 @@ function subscribeMessages() {
 
             renderedMessages.add(key);
 
-            const currentChat =
-
-                (
-                    m.from === me &&
-                    m.to === selectedUser
-                )
-
-                ||
-
-                (
-                    m.from === selectedUser &&
-                    m.to === me
-                );
-
-            if (!currentChat)
-                return;
-
             renderMessage(m);
 
             smoothScrollBottom();
         }
     );
 }
+
 
 
 /* =========================
