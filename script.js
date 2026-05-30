@@ -1,4 +1,3 @@
-
 const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
@@ -31,6 +30,8 @@ let onlineUsers = [];
 
 const renderedMessages =
 new Set();
+let messageSubscription = null;
+let typingSubscription = null;
 
 /* =========================
    START
@@ -184,7 +185,11 @@ function connectSocket() {
 
 function subscribeMessages() {
 
-    stompClient.subscribe(
+    if (messageSubscription) {
+        messageSubscription.unsubscribe();
+    }
+
+    messageSubscription = stompClient.subscribe(
 
         "/topic/messages",
 
@@ -192,6 +197,18 @@ function subscribeMessages() {
 
             const m =
             JSON.parse(msg.body);
+
+            const key =
+                m.id ||
+                `${m.from}_${m.content}_${m.timestamp}`;
+
+            if (
+                renderedMessages.has(key)
+            ) {
+                return;
+            }
+
+            renderedMessages.add(key);
 
             const currentChat =
 
@@ -210,22 +227,6 @@ function subscribeMessages() {
             if (!currentChat)
                 return;
 
-            const key =
-
-                m.id ||
-
-                `${m.from}_${m.content}_${m.timestamp}`;
-
-            /* FIX DUPLICATE */
-
-            if (
-                renderedMessages.has(key)
-            ) {
-                return;
-            }
-
-            renderedMessages.add(key);
-
             renderMessage(m);
 
             smoothScrollBottom();
@@ -234,14 +235,17 @@ function subscribeMessages() {
 }
 
 
-
 /* =========================
    TYPING
 ========================= */
 
 function subscribeTyping() {
 
-    stompClient.subscribe(
+    if (typingSubscription) {
+        typingSubscription.unsubscribe();
+    }
+
+    typingSubscription = stompClient.subscribe(
 
         "/topic/typing",
 
@@ -251,7 +255,6 @@ function subscribeTyping() {
             JSON.parse(msg.body);
 
             const typingBox =
-
             document.getElementById(
                 "typing"
             );
@@ -260,14 +263,11 @@ function subscribeTyping() {
                 return;
 
             if (
-
                 data.from === selectedUser &&
-
                 data.to === me
             ) {
 
                 typingBox.innerText =
-
                     data.isTyping
                     ? "typing..."
                     : "";
@@ -275,7 +275,6 @@ function subscribeTyping() {
         }
     );
 }
-
 /* =========================
    USERS
 ========================= */
@@ -828,5 +827,4 @@ setInterval(
     },
 
     3000
-);
-
+);   
