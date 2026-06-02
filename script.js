@@ -33,6 +33,26 @@ new Set();
 let messageSubscription = null;
 let typingSubscription = null;
 
+
+function getAvatar(user) {
+
+    const emojiRegex =
+    /\p{Extended_Pictographic}/u;
+
+    const chars =
+    [...user.trim()];
+
+    if (
+        chars.length &&
+        emojiRegex.test(chars[0])
+    ) {
+        return chars[0];
+    }
+
+    return chars[0]
+        ?.toUpperCase() || "?";
+}
+
 /* =========================
    START
 ========================= */
@@ -351,11 +371,9 @@ async function loadUsers() {
                     <div class="snapAvatar">
 
                         ${
-                            online
-                            ? "💀"
-                            : user
-                              .charAt(0)
-                              .toUpperCase()
+    online
+    ? "💀"
+    : getAvatar(user)
                         }
 
                     </div>
@@ -511,12 +529,11 @@ function updateChatStatus() {
 
     avatarBox.innerText =
 
-        online
-        ? "💀"
-        : selectedUser
-          .charAt(0)
-          .toUpperCase();
-}
+    online
+    ? "💀"
+    : selectedUser
+      .charAt(0)
+      .toUpperCase();
 
 
 /* =========================
