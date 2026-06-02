@@ -496,44 +496,36 @@ function updateChatStatus() {
         return;
 
     const online =
-
     onlineUsers.includes(
         selectedUser
     );
 
     const statusBox =
-
     document.getElementById(
         "chatStatus"
     );
 
     const avatarBox =
-
     document.getElementById(
         "avatarBox"
     );
 
     statusBox.innerText =
-
         online
         ? "online"
         : "offline";
 
     statusBox.style.color =
-
         online
         ? "#4ade80"
         : "#888";
 
-    /* SNAPCHAT STYLE */
-
     avatarBox.innerText =
+        online
+        ? "💀"
+        : getAvatar(selectedUser);
 
-    online
-    ? "💀"
-    : selectedUser
-      .charAt(0)
-      .toUpperCase();
+}
 
 
 /* =========================
