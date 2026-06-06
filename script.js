@@ -957,18 +957,20 @@ function reactMessage(emoji) {
     if (!selectedMessage)
         return;
 
+    const key =
+        selectedMessage.id ||
+        `${selectedMessage.from}_${selectedMessage.content}_${selectedMessage.timestamp}`;
+
     const msgElement =
-        document.querySelector(
-            `[data-id="${selectedMessage.id}"]`
+        document.getElementById(
+            "msg_" + key
         );
 
     if (!msgElement)
         return;
 
     let oldReaction =
-        msgElement.querySelector(
-            ".reaction"
-        );
+        msgElement.querySelector(".reaction");
 
     if (oldReaction) {
         oldReaction.remove();
@@ -977,16 +979,24 @@ function reactMessage(emoji) {
     const reaction =
         document.createElement("div");
 
-    reaction.className =
-        "reaction";
-
+    reaction.className = "reaction";
     reaction.innerHTML = emoji;
 
-    msgElement.appendChild(
-        reaction
-    );
+    msgElement.appendChild(reaction);
 
+    // Hide action menu
     document.getElementById(
         "actionBar"
     ).style.display = "none";
+
+    // Hide reply box
+    replyingTo = null;
+
+    document.getElementById(
+        "replyBox"
+    ).style.display = "none";
+
+    document.getElementById(
+        "replyText"
+    ).innerText = "";
 }
