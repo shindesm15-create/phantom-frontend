@@ -1,5 +1,4 @@
-
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -11,7 +10,7 @@ name="viewport"
 content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 />
 
-<title>Phantom Chat</title>
+<title>Phantom </title>
 
 <link
 href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
@@ -573,6 +572,114 @@ body{
     }
 }
 
+#actionBar{
+
+    position:fixed;
+
+    display:none;
+
+    background:#14111d;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:18px;
+
+    overflow:hidden;
+
+    z-index:99999;
+
+    min-width:220px;
+
+    backdrop-filter:blur(20px);
+
+    box-shadow:
+    0 10px 30px rgba(0,0,0,.45);
+}
+
+.emojiRow{
+
+    display:flex;
+
+    justify-content:space-around;
+
+    padding:12px;
+}
+
+.emojiRow span{
+
+    font-size:24px;
+
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+.emojiRow span:hover{
+
+    transform:scale(1.25);
+}
+
+.actionBtn{
+
+    padding:14px 16px;
+
+    cursor:pointer;
+
+    border-top:1px solid rgba(255,255,255,.05);
+}
+
+.actionBtn:hover{
+
+    background:#241834;
+}
+
+#replyBox{
+
+    display:none;
+
+    margin:10px;
+
+    padding:10px;
+
+    background:#1d1727;
+
+    border-left:4px solid #a855f7;
+
+    border-radius:10px;
+}
+
+.replyTop{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    font-size:12px;
+
+    color:#bba7d9;
+
+    margin-bottom:5px;
+}
+
+.replyTop span{
+
+    cursor:pointer;
+}
+
+#replyText{
+
+    font-size:14px;
+
+    color:white;
+}
+
+.reaction{
+
+    margin-top:6px;
+
+    font-size:20px;
+}
+
 </style>
 
 </head>
@@ -648,27 +755,61 @@ body{
         id="messages"></div>
 
         <!-- INPUT -->
+<div id="replyBox">
 
-        <div class="bottom">
+    <div class="replyTop">
 
-            <input
+        Replying to
 
-                type="text"
-
-                id="msg"
-
-                placeholder="Type message..."
-
-                autocomplete="off"
-            >
-
-            <button onclick="send()">
-                ➤
-            </button>
-
-        </div>
+        <span onclick="cancelReply()">✕</span>
 
     </div>
+
+    <div id="replyText"></div>
+
+</div>
+
+<div class="bottom">
+
+    <input
+        type="text"
+        id="msg"
+        placeholder="Type message..."
+    >
+
+    <button onclick="send()">➤</button>
+
+</div>
+
+    </div>
+
+</div>
+
+<div id="actionBar">
+
+    <div class="emojiRow">
+
+        <span onclick="reactMessage('❤️')">❤️</span>
+        <span onclick="reactMessage('👍')">👍</span>
+        <span onclick="reactMessage('😂')">😂</span>
+        <span onclick="reactMessage('🔥')">🔥</span>
+
+    </div>
+
+    <div class="actionBtn" onclick="replyMessage()">
+        ↩️ Reply
+    </div>
+
+    <div class="actionBtn" onclick="saveMessage()">
+        ⭐ Save
+    </div>
+
+    <div class="actionBtn" onclick="deleteMessage()">
+        🗑️ Delete
+    </div>
+
+</div>
+
 
 </div>
 
@@ -676,4 +817,3 @@ body{
 
 </body>
 </html>
-
