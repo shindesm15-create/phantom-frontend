@@ -28,6 +28,9 @@ let typingTimeout = null;
 
 let onlineUsers = [];
 
+let selectedMessage = null;
+let replyingTo = null;
+
 const renderedMessages =
 new Set();
 let messageSubscription = null;
@@ -531,33 +534,33 @@ function updateChatStatus() {
 /* =========================
    SEND
 ========================= */
-
 function send() {
 
     const input =
-    document.getElementById(
-        "msg"
-    );
+        document.getElementById("msg");
 
-    if (!input)
-        return;
+    if (!input) return;
 
     const content =
-    input.value.trim();
+        input.value.trim();
 
-    if (!content)
-        return;
+    if (!content) return;
 
-    if (!selectedUser)
-        return;
+    if (!selectedUser) {
 
-    if (!connected)
+        alert("Select a user first");
         return;
+    }
+
+    if (!connected || !stompClient) {
+
+        alert("Socket not connected");
+        return;
+    }
 
     const msg = {
 
-        id:
-        crypto.randomUUID(),
+        id: crypto.randomUUID(),
 
         from: me,
 
@@ -565,37 +568,70 @@ function send() {
 
         content: content,
 
-        timestamp:
-        Date.now()
+        replyTo:
+            replyingTo
+                ? replyingTo.content
+                : null,
+
+        timestamp: Date.now()
     };
 
-    /* SAVE BEFORE SOCKET */
+    // Prevent duplicate rendering
+    renderedMessages.add(msg.id);
 
-    renderedMessages.add(
-        msg.id
-    );
-
-    /* SHOW LOCAL */
-
+    // Show instantly in UI
     renderMessage(msg);
 
     smoothScrollBottom();
 
-    /* SEND */
+    try {
 
-    stompClient.send(
+        stompClient.send(
+            "/app/send",
+            {},
+            JSON.stringify(msg)
+        );
 
-        "/app/send",
+    } catch (e) {
 
-        {},
+        console.error(
+            "Send Error:",
+            e
+        );
 
-        JSON.stringify(msg)
-    );
+        return;
+    }
 
+    // Clear input
     input.value = "";
 
+    // Stop typing indicator
     sendTyping(false);
+
+    // Clear typing timer
+    clearTimeout(typingTimeout);
+
+    // Reset reply state
+    replyingTo = null;
+
+    const replyBox =
+        document.getElementById("replyBox");
+
+    if (replyBox) {
+
+        replyBox.style.display =
+            "none";
+    }
+
+    const replyText =
+        document.getElementById("replyText");
+
+    if (replyText) {
+
+        replyText.innerText = "";
+    }
 }
+
 
 
 /* =========================
@@ -734,9 +770,7 @@ async function loadMessages() {
 function renderMessage(m) {
 
     const box =
-    document.getElementById(
-        "messages"
-    );
+        document.getElementById("messages");
 
     if (!box) return;
 
@@ -744,38 +778,26 @@ function renderMessage(m) {
         m.id ||
         `${m.from}_${m.content}_${m.timestamp}`;
 
-    /* PREVENT DUPLICATE HTML */
-
-    if (
-        document.getElementById(
-            "msg_" + key
-        )
-    ) {
+    if (document.getElementById("msg_" + key)) {
         return;
     }
 
-    const mine =
-    m.from === me;
+    const mine = m.from === me;
 
-    const div =
-    document.createElement(
-        "div"
-    );
+    const div = document.createElement("div");
 
-    div.id =
-    "msg_" + key;
+    div.id = "msg_" + key;
+
+    div.dataset.id = m.id;
 
     div.className =
-        mine
-        ? "myMsg"
-        : "otherMsg";
+        mine ? "myMsg" : "otherMsg";
 
     let time = "";
 
     if (m.timestamp) {
 
-        const d =
-        new Date(m.timestamp);
+        const d = new Date(m.timestamp);
 
         time =
             d.getHours() +
@@ -786,13 +808,59 @@ function renderMessage(m) {
     }
 
     div.innerHTML = `
+
+        ${
+            m.replyTo
+            ?
+            `<div style="
+                background:rgba(255,255,255,.08);
+                padding:8px;
+                border-radius:10px;
+                margin-bottom:8px;
+                color:#d8b4fe;
+                font-size:12px;
+            ">
+                ${m.replyTo}
+            </div>`
+            : ""
+        }
+
         <div>${m.content}</div>
-        <div class="msgTime">${time}</div>
+
+        <div class="msgTime">
+            ${time}
+        </div>
     `;
+
+    div.addEventListener(
+        "dblclick",
+        (e) => {
+
+            selectedMessage = m;
+
+            const bar =
+                document.getElementById(
+                    "actionBar"
+                );
+
+            bar.style.display = "block";
+
+            bar.style.left =
+                Math.min(
+                    e.pageX,
+                    window.innerWidth - 240
+                ) + "px";
+
+            bar.style.top =
+                Math.min(
+                    e.pageY,
+                    window.innerHeight - 220
+                ) + "px";
+        }
+    );
 
     box.appendChild(div);
 }
-
 /* =========================
    SCROLL
 ========================= */
@@ -837,3 +905,88 @@ setInterval(
 
     3000
 );   
+
+document.addEventListener(
+    "click",
+    (e) => {
+
+        if (
+            !e.target.closest(
+                "#actionBar"
+            )
+        ) {
+
+            document.getElementById(
+                "actionBar"
+            ).style.display = "none";
+        }
+    }
+);
+
+function replyMessage() {
+
+    if (!selectedMessage)
+        return;
+
+    replyingTo = selectedMessage;
+
+    document.getElementById(
+        "replyBox"
+    ).style.display = "block";
+
+    document.getElementById(
+        "replyText"
+    ).innerText =
+        selectedMessage.content;
+
+    document.getElementById(
+        "actionBar"
+    ).style.display = "none";
+}
+
+function cancelReply() {
+
+    replyingTo = null;
+
+    document.getElementById(
+        "replyBox"
+    ).style.display = "none";
+}
+function reactMessage(emoji) {
+
+    if (!selectedMessage)
+        return;
+
+    const msgElement =
+        document.querySelector(
+            `[data-id="${selectedMessage.id}"]`
+        );
+
+    if (!msgElement)
+        return;
+
+    let oldReaction =
+        msgElement.querySelector(
+            ".reaction"
+        );
+
+    if (oldReaction) {
+        oldReaction.remove();
+    }
+
+    const reaction =
+        document.createElement("div");
+
+    reaction.className =
+        "reaction";
+
+    reaction.innerHTML = emoji;
+
+    msgElement.appendChild(
+        reaction
+    );
+
+    document.getElementById(
+        "actionBar"
+    ).style.display = "none";
+}
