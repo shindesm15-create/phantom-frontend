@@ -1,4 +1,4 @@
-const API_BASE =
+yeconst API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
 /* =========================
@@ -826,20 +826,33 @@ function renderMessage(m) {
     }
 
     ${
-        m.messageType === "IMAGE"
-        ?
-        `<img
-            src="${API_BASE}${m.imageUrl}"
-            class="chatImage"
-        >`
-        :
-        `<div>${m.content}</div>`
+  m.messageType === "IMAGE"
+  ? `
+    <img
+      src="${API_BASE}${m.imageUrl}"
+      class="chatImage"
+      onerror="this.style.display='none'"
+    >
+  `
+  : `<div>${m.content ?? ""}</div>`
     }
 
     <div class="msgTime">
         ${time}
     </div>
 `;
+
+   <div>${escapeHtml(m.content ?? "")}</div>
+
+
+   function escapeHtml(text) {
+    return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+   }
 
     div.addEventListener(
         "dblclick",
