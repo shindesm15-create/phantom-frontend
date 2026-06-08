@@ -809,28 +809,37 @@ function renderMessage(m) {
 
     div.innerHTML = `
 
-        ${
-            m.replyTo
-            ?
-            `<div style="
-                background:rgba(255,255,255,.08);
-                padding:8px;
-                border-radius:10px;
-                margin-bottom:8px;
-                color:#d8b4fe;
-                font-size:12px;
-            ">
-                ${m.replyTo}
-            </div>`
-            : ""
-        }
+    ${
+        m.replyTo
+        ?
+        `<div style="
+            background:rgba(255,255,255,.08);
+            padding:8px;
+            border-radius:10px;
+            margin-bottom:8px;
+            color:#d8b4fe;
+            font-size:12px;
+        ">
+            ${m.replyTo}
+        </div>`
+        : ""
+    }
 
-        <div>${m.content}</div>
+    ${
+        m.messageType === "IMAGE"
+        ?
+        `<img
+            src="${API_BASE}${m.imageUrl}"
+            class="chatImage"
+        >`
+        :
+        `<div>${m.content}</div>`
+    }
 
-        <div class="msgTime">
-            ${time}
-        </div>
-    `;
+    <div class="msgTime">
+        ${time}
+    </div>
+`;
 
     div.addEventListener(
         "dblclick",
@@ -861,6 +870,8 @@ function renderMessage(m) {
 
     box.appendChild(div);
 }
+
+
 /* =========================
    SCROLL
 ========================= */
@@ -957,20 +968,18 @@ function reactMessage(emoji) {
     if (!selectedMessage)
         return;
 
-    const key =
-        selectedMessage.id ||
-        `${selectedMessage.from}_${selectedMessage.content}_${selectedMessage.timestamp}`;
-
     const msgElement =
-        document.getElementById(
-            "msg_" + key
+        document.querySelector(
+            `[data-id="${selectedMessage.id}"]`
         );
 
     if (!msgElement)
         return;
 
     let oldReaction =
-        msgElement.querySelector(".reaction");
+        msgElement.querySelector(
+            ".reaction"
+        );
 
     if (oldReaction) {
         oldReaction.remove();
@@ -979,24 +988,55 @@ function reactMessage(emoji) {
     const reaction =
         document.createElement("div");
 
-    reaction.className = "reaction";
+    reaction.className =
+        "reaction";
+
     reaction.innerHTML = emoji;
 
-    msgElement.appendChild(reaction);
+    msgElement.appendChild(
+        reaction
+    );
 
-    // Hide action menu
     document.getElementById(
         "actionBar"
     ).style.display = "none";
-
-    // Hide reply box
-    replyingTo = null;
-
-    document.getElementById(
-        "replyBox"
-    ).style.display = "none";
-
-    document.getElementById(
-        "replyText"
-    ).innerText = "";
 }
+
+document
+.getElementById("imageInput")
+.addEventListener(
+    "change",
+    async (e) => {
+
+        const file = e.target.files[0];
+
+        if (!file) return;
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+        const res = await fetch(
+            API_BASE + "/upload",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        const imageUrl = await res.text();
+
+        stompClient.send(
+            "/app/send",
+            {},
+            JSON.stringify({
+                id: crypto.randomUUID(),
+                from: me,
+                to: selectedUser,
+                imageUrl: imageUrl,
+                messageType: "IMAGE",
+                timestamp: Date.now()
+            })
+        );
+    }
+);
