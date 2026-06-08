@@ -680,6 +680,14 @@ body{
     font-size:20px;
 }
 
+.chatImage{
+    max-width:250px;
+    max-height:300px;
+    border-radius:12px;
+    cursor:pointer;
+    display:block;
+}
+
 </style>
 
 </head>
@@ -772,6 +780,19 @@ body{
 <div class="bottom">
 
     <input
+        type="file"
+        id="imageInput"
+        accept="image/*"
+        hidden
+    >
+
+   <button
+    id="imageBtn"
+    onclick="document.getElementById('imageInput').click()">
+    📷
+</button>
+
+    <input
         type="text"
         id="msg"
         placeholder="Type message..."
@@ -780,7 +801,6 @@ body{
     <button onclick="send()">➤</button>
 
 </div>
-
     </div>
 
 </div>
