@@ -807,12 +807,12 @@ function renderMessage(m) {
             ).padStart(2, "0");
     }
 
-    div.innerHTML = `
-
+    
+div.innerHTML = `
     ${
         m.replyTo
-        ?
-        `<div style="
+        ? `
+        <div style="
             background:rgba(255,255,255,.08);
             padding:8px;
             border-radius:10px;
@@ -820,21 +820,23 @@ function renderMessage(m) {
             color:#d8b4fe;
             font-size:12px;
         ">
-            ${m.replyTo}
+            ${escapeHtml(m.replyTo ?? "")}
         </div>`
         : ""
     }
 
     ${
-  m.messageType === "IMAGE"
-  ? `
-    <img
-      src="${API_BASE}${m.imageUrl}"
-      class="chatImage"
-      onerror="this.style.display='none'"
-    >
-  `
-  : `<div>${m.content ?? ""}</div>`
+        m.messageType === "IMAGE"
+        ? `
+        <img
+            src="${API_BASE}${m.imageUrl}"
+            class="chatImage"
+            onerror="this.style.display='none'"
+        >
+        `
+        : `
+        <div>${escapeHtml(m.content ?? "")}</div>
+        `
     }
 
     <div class="msgTime">
@@ -842,7 +844,7 @@ function renderMessage(m) {
     </div>
 `;
 
-   <div>${escapeHtml(m.content ?? "")}</div>
+
 
 
    function escapeHtml(text) {
