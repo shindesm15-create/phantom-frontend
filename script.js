@@ -1,4 +1,4 @@
-yeconst API_BASE =
+const API_BASE =
 "https://phantom-backend05-1.onrender.com";
 
 /* =========================
