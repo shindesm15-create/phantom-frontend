@@ -320,62 +320,53 @@ async function loadUsers() {
 
     try {
 
-        const res =
-
-        await fetch(
+        const res = await fetch(
             API_BASE + "/users"
         );
 
-        const users =
-        await res.json();
+        if (!res.ok) {
+            console.log("Users API Error");
+            return;
+        }
+
+        const users = await res.json();
+
+        console.log("Users:", users);
 
         const box =
+        document.getElementById("users");
 
-        document.getElementById(
-            "users"
-        );
-
-        if (!box)
+        if (!box) {
+            console.log("Users div not found");
             return;
+        }
 
         box.innerHTML = "";
 
         users.forEach(user => {
 
-            if (user === me)
+            /* Skip myself */
+            if (user === me) {
                 return;
+            }
 
             const online =
-
-            onlineUsers.includes(
-                user
-            );
+            onlineUsers.includes(user);
 
             const div =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
-            div.className =
-            "user";
+            div.className = "user";
 
             div.onclick = () => {
-
                 openChat(user);
             };
 
             div.innerHTML = `
-
                 <div class="userRow">
 
                     <div class="snapAvatar">
-
-                        ${
-    online
-    ? "💀"
-    : getAvatar(user)
-                        }
-
+                        ${online ? "💀" : getAvatar(user)}
                     </div>
 
                     <div>
@@ -385,20 +376,9 @@ async function loadUsers() {
                         </div>
 
                         <div class="userStatus"
-                        style="
-                            color:
-                            ${
-                                online
-                                ? "#4ade80"
-                                : "#888"
-                            };
-                        ">
+                        style="color:${online ? "#4ade80" : "#888"}">
 
-                            ${
-                                online
-                                ? "online"
-                                : "offline"
-                            }
+                            ${online ? "online" : "offline"}
 
                         </div>
 
@@ -410,7 +390,13 @@ async function loadUsers() {
             box.appendChild(div);
         });
 
-    } catch(e){}
+    } catch (e) {
+
+        console.error(
+            "loadUsers error:",
+            e
+        );
+    }
 }
 
 /* =========================
