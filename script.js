@@ -318,86 +318,76 @@ async function loadOnlineUsers() {
 
 async function loadUsers() {
 
-    try {
 
-        const res = await fetch(
-            API_BASE + "/users"
-        );
+try {
 
-        if (!res.ok) {
-            console.log("Users API Error");
-            return;
-        }
+    const res =
+    await fetch(API_BASE + "/users");
 
-        const users = await res.json();
+    const users =
+    await res.json();
 
-        console.log("Users:", users);
+    const box =
+    document.getElementById("users");
 
-        const box =
-        document.getElementById("users");
+    if (!box) return;
 
-        if (!box) {
-            console.log("Users div not found");
-            return;
-        }
+    box.innerHTML = "";
 
-        box.innerHTML = "";
+    users.forEach(user => {
 
-        users.forEach(user => {
+        if (!user) return;
 
-            /* Skip myself */
-            if (user === me) {
-                return;
-            }
+        if (user === me) return;
 
-            const online =
-            onlineUsers.includes(user);
+        const online =
+        onlineUsers.includes(user);
 
-            const div =
-            document.createElement("div");
+        const div =
+        document.createElement("div");
 
-            div.className = "user";
+        div.className = "user";
 
-            div.onclick = () => {
-                openChat(user);
-            };
+        div.onclick = () => openChat(user);
 
-            div.innerHTML = `
-                <div class="userRow">
+        div.innerHTML = `
+            <div class="userRow">
 
-                    <div class="snapAvatar">
-                        ${online ? "💀" : getAvatar(user)}
+                <div class="snapAvatar">
+                    ${online ? "💀" : getAvatar(user)}
+                </div>
+
+                <div>
+
+                    <div class="userName">
+                        ${user}
                     </div>
 
-                    <div>
+                    <div class="userStatus"
+                         style="color:${online ? '#4ade80' : '#888'}">
 
-                        <div class="userName">
-                            ${user}
-                        </div>
-
-                        <div class="userStatus"
-                        style="color:${online ? "#4ade80" : "#888"}">
-
-                            ${online ? "online" : "offline"}
-
-                        </div>
+                        ${online ? 'online' : 'offline'}
 
                     </div>
 
                 </div>
-            `;
 
-            box.appendChild(div);
-        });
+            </div>
+        `;
 
-    } catch (e) {
+        box.appendChild(div);
+    });
 
-        console.error(
-            "loadUsers error:",
-            e
-        );
-    }
+} catch (e) {
+
+    console.error(
+        "loadUsers error",
+        e
+    );
 }
+
+}
+
 
 /* =========================
    OPEN CHAT
