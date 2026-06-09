@@ -320,59 +320,30 @@ async function loadOnlineUsers() {
 }
 
 async function loadUsers() {
-
     try {
+        const res = await fetch(API_BASE + "/users");
+        const users = await res.json();
 
-        const res =
+        console.log("Users:", users);
+        console.log("Me:", me);
 
-        await fetch(
-            API_BASE + "/users"
-        );
-
-        const users =
-        await res.json();
-
-        const box =
-
-        document.getElementById(
-            "users"
-        );
-
-        if (!box)
-            return;
+        const box = document.getElementById("users");
+        console.log("Box:", box);
 
         box.innerHTML = "";
 
         users.forEach(user => {
+            console.log("User:", user);
 
-            if (user === me)
-                return;
+            if (user === me) return;
 
-            const online =
+            box.innerHTML += `<div>${user}</div>`;
+        });
 
-            onlineUsers.includes(
-                user
-            );
-
-            const div =
-            document.createElement(
-                "div"
-            );
-
-            div.className =
-            "user";
-
-            div.onclick = () => {
-
-                openChat(user);
-            };
-
-            div.innerHTML = `
-
-                <div class="userRow">
-
-                    <div class="snapAvatar">
-
+    } catch(e) {
+        console.error("loadUsers error", e);
+    }
+}
                         ${
     online
     ? "💀"
