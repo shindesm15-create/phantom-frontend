@@ -428,10 +428,9 @@ async function login() {
             "LOGIN START"
         );
 
-        let response =
-        await fetch(
-
-            API_BASE + "/login",
+      let response =
+     await fetch(
+    API_BASE + "/auth/login",
 
             {
                 method: "POST",
