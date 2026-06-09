@@ -28,9 +28,6 @@ let typingTimeout = null;
 
 let onlineUsers = [];
 
-let selectedMessage = null;
-let replyingTo = null;
-
 const renderedMessages =
 new Set();
 let messageSubscription = null;
@@ -320,30 +317,59 @@ async function loadOnlineUsers() {
 }
 
 async function loadUsers() {
+
     try {
-        const res = await fetch(API_BASE + "/users");
-        const users = await res.json();
 
-        console.log("Users:", users);
-        console.log("Me:", me);
+        const res =
 
-        const box = document.getElementById("users");
-        console.log("Box:", box);
+        await fetch(
+            API_BASE + "/users"
+        );
+
+        const users =
+        await res.json();
+
+        const box =
+
+        document.getElementById(
+            "users"
+        );
+
+        if (!box)
+            return;
 
         box.innerHTML = "";
 
         users.forEach(user => {
-            console.log("User:", user);
 
-            if (user === me) return;
+            if (user === me)
+                return;
 
-            box.innerHTML += `<div>${user}</div>`;
-        });
+            const online =
 
-    } catch(e) {
-        console.error("loadUsers error", e);
-    }
-}
+            onlineUsers.includes(
+                user
+            );
+
+            const div =
+            document.createElement(
+                "div"
+            );
+
+            div.className =
+            "user";
+
+            div.onclick = () => {
+
+                openChat(user);
+            };
+
+            div.innerHTML = `
+
+                <div class="userRow">
+
+                    <div class="snapAvatar">
+
                         ${
     online
     ? "💀"
@@ -505,33 +531,33 @@ function updateChatStatus() {
 /* =========================
    SEND
 ========================= */
+
 function send() {
 
     const input =
-        document.getElementById("msg");
+    document.getElementById(
+        "msg"
+    );
 
-    if (!input) return;
+    if (!input)
+        return;
 
     const content =
-        input.value.trim();
+    input.value.trim();
 
-    if (!content) return;
-
-    if (!selectedUser) {
-
-        alert("Select a user first");
+    if (!content)
         return;
-    }
 
-    if (!connected || !stompClient) {
-
-        alert("Socket not connected");
+    if (!selectedUser)
         return;
-    }
+
+    if (!connected)
+        return;
 
     const msg = {
 
-        id: crypto.randomUUID(),
+        id:
+        crypto.randomUUID(),
 
         from: me,
 
@@ -539,70 +565,37 @@ function send() {
 
         content: content,
 
-        replyTo:
-            replyingTo
-                ? replyingTo.content
-                : null,
-
-        timestamp: Date.now()
+        timestamp:
+        Date.now()
     };
 
-    // Prevent duplicate rendering
-    renderedMessages.add(msg.id);
+    /* SAVE BEFORE SOCKET */
 
-    // Show instantly in UI
+    renderedMessages.add(
+        msg.id
+    );
+
+    /* SHOW LOCAL */
+
     renderMessage(msg);
 
     smoothScrollBottom();
 
-    try {
+    /* SEND */
 
-        stompClient.send(
-            "/app/send",
-            {},
-            JSON.stringify(msg)
-        );
+    stompClient.send(
 
-    } catch (e) {
+        "/app/send",
 
-        console.error(
-            "Send Error:",
-            e
-        );
+        {},
 
-        return;
-    }
+        JSON.stringify(msg)
+    );
 
-    // Clear input
     input.value = "";
 
-    // Stop typing indicator
     sendTyping(false);
-
-    // Clear typing timer
-    clearTimeout(typingTimeout);
-
-    // Reset reply state
-    replyingTo = null;
-
-    const replyBox =
-        document.getElementById("replyBox");
-
-    if (replyBox) {
-
-        replyBox.style.display =
-            "none";
-    }
-
-    const replyText =
-        document.getElementById("replyText");
-
-    if (replyText) {
-
-        replyText.innerText = "";
-    }
 }
-
 
 
 /* =========================
@@ -741,7 +734,9 @@ async function loadMessages() {
 function renderMessage(m) {
 
     const box =
-        document.getElementById("messages");
+    document.getElementById(
+        "messages"
+    );
 
     if (!box) return;
 
@@ -749,26 +744,38 @@ function renderMessage(m) {
         m.id ||
         `${m.from}_${m.content}_${m.timestamp}`;
 
-    if (document.getElementById("msg_" + key)) {
+    /* PREVENT DUPLICATE HTML */
+
+    if (
+        document.getElementById(
+            "msg_" + key
+        )
+    ) {
         return;
     }
 
-    const mine = m.from === me;
+    const mine =
+    m.from === me;
 
-    const div = document.createElement("div");
+    const div =
+    document.createElement(
+        "div"
+    );
 
-    div.id = "msg_" + key;
-
-    div.dataset.id = m.id;
+    div.id =
+    "msg_" + key;
 
     div.className =
-        mine ? "myMsg" : "otherMsg";
+        mine
+        ? "myMsg"
+        : "otherMsg";
 
     let time = "";
 
     if (m.timestamp) {
 
-        const d = new Date(m.timestamp);
+        const d =
+        new Date(m.timestamp);
 
         time =
             d.getHours() +
@@ -778,85 +785,13 @@ function renderMessage(m) {
             ).padStart(2, "0");
     }
 
-    
-div.innerHTML = `
-    ${
-        m.replyTo
-        ? `
-        <div style="
-            background:rgba(255,255,255,.08);
-            padding:8px;
-            border-radius:10px;
-            margin-bottom:8px;
-            color:#d8b4fe;
-            font-size:12px;
-        ">
-            ${escapeHtml(m.replyTo ?? "")}
-        </div>`
-        : ""
-    }
-
-    ${
-        m.messageType === "IMAGE"
-        ? `
-        <img
-            src="${API_BASE}${m.imageUrl}"
-            class="chatImage"
-            onerror="this.style.display='none'"
-        >
-        `
-        : `
-        <div>${escapeHtml(m.content ?? "")}</div>
-        `
-    }
-
-    <div class="msgTime">
-        ${time}
-    </div>
-`;
-
-
-
-
-   function escapeHtml(text) {
-    return text
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-   }
-
-    div.addEventListener(
-        "dblclick",
-        (e) => {
-
-            selectedMessage = m;
-
-            const bar =
-                document.getElementById(
-                    "actionBar"
-                );
-
-            bar.style.display = "block";
-
-            bar.style.left =
-                Math.min(
-                    e.pageX,
-                    window.innerWidth - 240
-                ) + "px";
-
-            bar.style.top =
-                Math.min(
-                    e.pageY,
-                    window.innerHeight - 220
-                ) + "px";
-        }
-    );
+    div.innerHTML = `
+        <div>${m.content}</div>
+        <div class="msgTime">${time}</div>
+    `;
 
     box.appendChild(div);
 }
-
 
 /* =========================
    SCROLL
@@ -902,127 +837,3 @@ setInterval(
 
     3000
 );   
-
-document.addEventListener(
-    "click",
-    (e) => {
-
-        if (
-            !e.target.closest(
-                "#actionBar"
-            )
-        ) {
-
-            document.getElementById(
-                "actionBar"
-            ).style.display = "none";
-        }
-    }
-);
-
-function replyMessage() {
-
-    if (!selectedMessage)
-        return;
-
-    replyingTo = selectedMessage;
-
-    document.getElementById(
-        "replyBox"
-    ).style.display = "block";
-
-    document.getElementById(
-        "replyText"
-    ).innerText =
-        selectedMessage.content;
-
-    document.getElementById(
-        "actionBar"
-    ).style.display = "none";
-}
-
-function cancelReply() {
-
-    replyingTo = null;
-
-    document.getElementById(
-        "replyBox"
-    ).style.display = "none";
-}
-function reactMessage(emoji) {
-
-    if (!selectedMessage)
-        return;
-
-    const msgElement =
-        document.querySelector(
-            `[data-id="${selectedMessage.id}"]`
-        );
-
-    if (!msgElement)
-        return;
-
-    let oldReaction =
-        msgElement.querySelector(
-            ".reaction"
-        );
-
-    if (oldReaction) {
-        oldReaction.remove();
-    }
-
-    const reaction =
-        document.createElement("div");
-
-    reaction.className =
-        "reaction";
-
-    reaction.innerHTML = emoji;
-
-    msgElement.appendChild(
-        reaction
-    );
-
-    document.getElementById(
-        "actionBar"
-    ).style.display = "none";
-}
-
-document
-.getElementById("imageInput")
-.addEventListener(
-    "change",
-    async (e) => {
-
-        const file = e.target.files[0];
-
-        if (!file) return;
-
-        const formData = new FormData();
-
-        formData.append("file", file);
-
-        const res = await fetch(
-            API_BASE + "/upload",
-            {
-                method: "POST",
-                body: formData
-            }
-        );
-
-        const imageUrl = await res.text();
-
-        stompClient.send(
-            "/app/send",
-            {},
-            JSON.stringify({
-                id: crypto.randomUUID(),
-                from: me,
-                to: selectedUser,
-                imageUrl: imageUrl,
-                messageType: "IMAGE",
-                timestamp: Date.now()
-            })
-        );
-    }
-);
