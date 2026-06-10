@@ -333,48 +333,42 @@ function send() {
 
     if (!selectedUser || !connected) return;
 
-    // IMAGE MESSAGE
-    if (file.files && file.files.length > 0) {
+    // IMAGE
+    if (file.files.length > 0) {
 
         const reader = new FileReader();
 
         reader.onload = () => {
 
             const msg = {
-                id: crypto.randomUUID(),
                 from: me,
                 to: selectedUser,
-                type: "image",
-                content: reader.result,
+                messageType: "IMAGE",
+                content: null,
+                imageUrl: reader.result,   // ✔ IMPORTANT
                 timestamp: Date.now()
             };
 
-            sendMessage(msg);
+            stompClient.send("/app/send", {}, JSON.stringify(msg));
         };
 
         reader.readAsDataURL(file.files[0]);
-
-        // IMPORTANT CLEANUP
         file.value = "";
-        input.value = "";
         return;
     }
 
-    // TEXT MESSAGE
+    // TEXT
     const text = input.value.trim();
-
     if (!text) return;
 
-    const msg = {
-        id: crypto.randomUUID(),
+    stompClient.send("/app/send", {}, JSON.stringify({
         from: me,
         to: selectedUser,
-        type: "text",
+        messageType: "TEXT",
         content: text,
+        imageUrl: null,
         timestamp: Date.now()
-    };
-
-    sendMessage(msg);
+    }));
 
     input.value = "";
 }
@@ -436,7 +430,7 @@ function sendTyping(status) {
 ========================= */
 function renderMessage(m) {
 
-    if (!m || !m.content) return; // 🔥 FIX NULL MESSAGE BUG
+    if (!m) return;
 
     const box = document.getElementById("messages");
 
@@ -453,24 +447,24 @@ function renderMessage(m) {
         time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
     }
 
-    if (m.type === "image") {
+    // IMAGE MESSAGE
+    if (m.messageType === "IMAGE" && m.imageUrl) {
 
         div.innerHTML = `
-            <img class="chatImage" src="${m.content}" />
+            <img class="chatImage" src="${m.imageUrl}" />
             <div class="msgTime">${time}</div>
         `;
 
     } else {
 
         div.innerHTML = `
-            <div>${m.content}</div>
+            <div>${m.content || ""}</div>
             <div class="msgTime">${time}</div>
         `;
     }
 
     box.appendChild(div);
 }
-
 /* =========================
    SCROLL FIX
 ========================= */
