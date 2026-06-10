@@ -1,17 +1,15 @@
 const API_BASE = "https://phantom-backend05-1.onrender.com";
 
 /* =========================
-   USER CHECK
+   USER
 ========================= */
 
 const me = localStorage.getItem("user");
 
-if (!me) {
-    window.location.href = "login.html";
-}
+if (!me) window.location.href = "login.html";
 
 /* =========================
-   GLOBALS
+   STATE
 ========================= */
 
 let selectedUser = "";
@@ -21,61 +19,37 @@ let connected = false;
 let typingTimeout = null;
 
 let onlineUsers = [];
-const renderedMessages = new Set();
+const renderedMessages = new Map(); // better than Set (prevents leaks)
 
-let messageSubscription = null;
-let typingSubscription = null;
-
-/* =========================
-   AVATAR
-========================= */
-
-function getAvatar(user) {
-    const emojiRegex = /\p{Extended_Pictographic}/u;
-    const chars = [...user.trim()];
-
-    if (chars.length && emojiRegex.test(chars[0])) {
-        return chars[0];
-    }
-
-    return chars[0]?.toUpperCase() || "?";
-}
+let messageSub = null;
+let typingSub = null;
 
 /* =========================
-   START
+   INIT
 ========================= */
 
 window.onload = async () => {
 
-    const meBox = document.getElementById("me");
-    if (meBox) meBox.innerText = "Logged as: " + me;
+    document.getElementById("me").innerText = "Logged as: " + me;
 
     await setOnline();
-
     connectSocket();
 
     await loadOnlineUsers();
     await loadUsers();
 
-    setupInputEvents();
+    setupInput();
 
-    // refresh online users
-    setInterval(async () => {
-        await loadOnlineUsers();
-        await loadUsers();
-        updateChatStatus();
-    }, 3000);
+    setInterval(syncUsers, 4000);
 };
 
 /* =========================
-   ONLINE STATUS
+   ONLINE
 ========================= */
 
 async function setOnline() {
     try {
-        await fetch(API_BASE + "/api/online?user=" + me, {
-            method: "POST"
-        });
+        await fetch(API_BASE + "/api/online?user=" + me, { method: "POST" });
     } catch (e) {}
 }
 
@@ -85,16 +59,8 @@ function setOffline() {
 
 window.addEventListener("beforeunload", setOffline);
 
-document.addEventListener("visibilitychange", async () => {
-    if (document.hidden) {
-        setOffline();
-    } else {
-        await setOnline();
-    }
-});
-
 /* =========================
-   SOCKET CONNECTION
+   SOCKET
 ========================= */
 
 function connectSocket() {
@@ -103,159 +69,130 @@ function connectSocket() {
     stompClient = Stomp.over(socket);
     stompClient.debug = null;
 
-    stompClient.connect(
-        {},
-        () => {
-            connected = true;
-            console.log("Socket Connected");
+    stompClient.connect({}, () => {
 
-            subscribeMessages();
-            subscribeTyping();
-        },
-        () => {
-            connected = false;
-            console.log("Socket Disconnected");
+        connected = true;
 
-            if (stompClient) {
-                try {
-                    stompClient.disconnect(() => {});
-                } catch (e) {}
-                stompClient = null;
-            }
+        subscribeMessages();
+        subscribeTyping();
 
-            setTimeout(connectSocket, 3000);
-        }
-    );
+    }, () => {
+
+        connected = false;
+
+        setTimeout(connectSocket, 3000);
+    });
 }
 
 /* =========================
-   MESSAGE SUBSCRIBE
+   MESSAGE SOCKET
 ========================= */
 
 function subscribeMessages() {
 
-    if (messageSubscription) {
-        try {
-            messageSubscription.unsubscribe();
-        } catch (e) {}
-    }
+    if (messageSub) messageSub.unsubscribe();
 
-    messageSubscription = stompClient.subscribe(
-        "/topic/messages",
-        (msg) => {
+    messageSub = stompClient.subscribe("/topic/messages", (msg) => {
 
-            const m = JSON.parse(msg.body);
+        const m = JSON.parse(msg.body);
 
-            if (!selectedUser) return;
+        if (!selectedUser) return;
 
-            const valid =
-                (m.from === me && m.to === selectedUser) ||
-                (m.from === selectedUser && m.to === me);
+        const valid =
+            (m.from === me && m.to === selectedUser) ||
+            (m.from === selectedUser && m.to === me);
 
-            if (!valid) return;
+        if (!valid) return;
 
-            const key = m.id || `${m.from}_${m.content}_${m.timestamp}`;
+        const key = m.id || `${m.from}_${m.timestamp}`;
 
-            if (renderedMessages.has(key)) return;
+        if (renderedMessages.has(key)) return;
 
-            renderedMessages.add(key);
+        renderedMessages.set(key, true);
 
-            if (renderedMessages.size > 500) {
-                renderedMessages.clear();
-            }
-
-            renderMessage(m);
-            smoothScrollBottom();
-        }
-    );
+        renderMessage(m);
+        scrollBottom();
+    });
 }
 
 /* =========================
-   TYPING
+   TYPING SOCKET
 ========================= */
 
 function subscribeTyping() {
 
-    if (typingSubscription) {
-        try {
-            typingSubscription.unsubscribe();
-        } catch (e) {}
-    }
+    if (typingSub) typingSub.unsubscribe();
 
-    typingSubscription = stompClient.subscribe(
-        "/topic/typing",
-        (msg) => {
+    typingSub = stompClient.subscribe("/topic/typing", (msg) => {
 
-            const data = JSON.parse(msg.body);
+        const d = JSON.parse(msg.body);
 
-            const typingBox = document.getElementById("typing");
-            if (!typingBox) return;
+        const box = document.getElementById("typing");
+        if (!box) return;
 
-            if (
-                data.from === selectedUser &&
-                data.to === me
-            ) {
-                typingBox.innerText = data.isTyping ? "typing..." : "";
-            }
+        if (d.from === selectedUser && d.to === me) {
+            box.innerText = d.isTyping ? "typing..." : "";
         }
-    );
+    });
 }
 
 /* =========================
    USERS
 ========================= */
 
+async function loadUsers() {
+
+    const res = await fetch(API_BASE + "/api/users");
+    const users = await res.json();
+
+    const box = document.getElementById("users");
+    box.innerHTML = "";
+
+    users.forEach(u => {
+
+        if (!u || u === me) return;
+
+        const online = onlineUsers.includes(u);
+
+        const div = document.createElement("div");
+        div.className = "user";
+
+        div.onclick = () => openChat(u);
+
+        div.innerHTML = `
+            <div class="userRow">
+                <div class="snapAvatar">${online ? "🟢" : "⚪"}</div>
+                <div>
+                    <div class="userName">${u}</div>
+                    <div class="userStatus">${online ? "online" : "offline"}</div>
+                </div>
+            </div>
+        `;
+
+        box.appendChild(div);
+    });
+}
+
+/* =========================
+   ONLINE USERS SYNC
+========================= */
+
 async function loadOnlineUsers() {
     try {
         const res = await fetch(API_BASE + "/api/online-users");
         onlineUsers = await res.json();
-    } catch (e) {
+    } catch {
         onlineUsers = [];
     }
 }
 
-async function loadUsers() {
-    try {
-        const res = await fetch(API_BASE + "/api/users");
-        const users = await res.json();
+async function syncUsers() {
 
-        const box = document.getElementById("users");
-        if (!box) return;
+    if (document.hidden) return;
 
-        box.innerHTML = "";
-
-        users.forEach(user => {
-
-            if (!user || user === me) return;
-
-            const online = onlineUsers.includes(user);
-
-            const div = document.createElement("div");
-            div.className = "user";
-
-            div.onclick = () => openChat(user);
-
-            div.innerHTML = `
-                <div class="userRow">
-                    <div class="snapAvatar">
-                        ${online ? "💀" : getAvatar(user)}
-                    </div>
-
-                    <div>
-                        <div class="userName">${user}</div>
-                        <div class="userStatus" style="color:${online ? '#4ade80' : '#888'}">
-                            ${online ? 'online' : 'offline'}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            box.appendChild(div);
-        });
-
-    } catch (e) {
-        console.error("loadUsers error", e);
-    }
+    await loadOnlineUsers();
+    await loadUsers();
+    updateStatus();
 }
 
 /* =========================
@@ -268,15 +205,18 @@ async function openChat(user) {
 
     renderedMessages.clear();
 
-    const chatWith = document.getElementById("chatWith");
-    if (chatWith) chatWith.innerText = user;
+    document.getElementById("chatWith").innerText = user;
+    document.getElementById("messages").innerHTML = "";
 
-    const box = document.getElementById("messages");
-    if (box) box.innerHTML = "";
-
-    updateChatStatus();
+    updateStatus();
 
     await loadMessages();
+
+    // MOBILE FIX
+    if (window.innerWidth <= 700) {
+        document.querySelector(".sidebar").style.display = "none";
+        document.querySelector(".chat").classList.add("active");
+    }
 }
 
 /* =========================
@@ -284,73 +224,119 @@ async function openChat(user) {
 ========================= */
 
 function closeChat() {
+
     if (window.innerWidth <= 700) {
-        document.querySelector(".chat").style.display = "none";
         document.querySelector(".sidebar").style.display = "block";
+        document.querySelector(".chat").classList.remove("active");
     }
 }
 
 /* =========================
-   STATUS UPDATE
+   STATUS
 ========================= */
 
-function updateChatStatus() {
+function updateStatus() {
 
     if (!selectedUser) return;
 
     const online = onlineUsers.includes(selectedUser);
 
-    const statusBox = document.getElementById("chatStatus");
-    const avatarBox = document.getElementById("avatarBox");
+    document.getElementById("chatStatus").innerText =
+        online ? "online" : "offline";
 
-    if (statusBox) {
-        statusBox.innerText = online ? "online" : "offline";
-        statusBox.style.color = online ? "#4ade80" : "#888";
-    }
-
-    if (avatarBox) {
-        avatarBox.innerText = online ? "💀" : getAvatar(selectedUser);
-    }
+    document.getElementById("avatarBox").innerText =
+        online ? "🟢" : "💀";
 }
 
 /* =========================
-   SEND MESSAGE
+   LOAD MESSAGES
+========================= */
+
+async function loadMessages() {
+
+    const res = await fetch(
+        `${API_BASE}/api/messages?user1=${me}&user2=${selectedUser}`
+    );
+
+    const data = await res.json();
+
+    data.forEach(renderMessage);
+
+    scrollBottom();
+}
+
+/* =========================
+   SEND MESSAGE (TEXT + IMAGE)
 ========================= */
 
 function send() {
 
     const input = document.getElementById("msg");
-    if (!input) return;
+    const file = document.getElementById("imageInput");
 
-    const content = input.value.trim();
-    if (!content || !selectedUser || !connected) return;
+    if (!selectedUser || !connected) return;
 
-    const msg = {
+    // IMAGE
+    if (file.files.length > 0) {
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+
+            sendMsg({
+                id: crypto.randomUUID(),
+                from: me,
+                to: selectedUser,
+                type: "image",
+                content: reader.result,
+                timestamp: Date.now()
+            });
+        };
+
+        reader.readAsDataURL(file.files[0]);
+        file.value = "";
+        return;
+    }
+
+    // TEXT
+    const text = input.value.trim();
+    if (!text) return;
+
+    sendMsg({
         id: crypto.randomUUID(),
         from: me,
         to: selectedUser,
-        content,
+        type: "text",
+        content: text,
         timestamp: Date.now()
-    };
+    });
 
-    renderedMessages.add(msg.id);
+    input.value = "";
+}
+
+/* =========================
+   SEND SOCKET
+========================= */
+
+function sendMsg(msg) {
+
+    renderedMessages.set(msg.id, true);
 
     renderMessage(msg);
-    smoothScrollBottom();
+    scrollBottom();
 
     stompClient.send("/app/send", {}, JSON.stringify(msg));
 
-    input.value = "";
     sendTyping(false);
 }
 
 /* =========================
-   TYPING SEND
+   TYPING
 ========================= */
 
 function sendTyping(status) {
 
-    if (!selectedUser || !connected) return;
+    if (!connected || !selectedUser) return;
 
     stompClient.send("/app/typing", {}, JSON.stringify({
         from: me,
@@ -360,15 +346,14 @@ function sendTyping(status) {
 }
 
 /* =========================
-   INPUT EVENTS
+   INPUT
 ========================= */
 
-function setupInputEvents() {
+function setupInput() {
 
     const input = document.getElementById("msg");
-    if (!input) return;
 
-    input.addEventListener("keypress", (e) => {
+    input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") send();
     });
 
@@ -385,56 +370,28 @@ function setupInputEvents() {
 }
 
 /* =========================
-   LOAD MESSAGES
-========================= */
-
-async function loadMessages() {
-
-    try {
-        const res = await fetch(
-            `${API_BASE}/api/messages?user1=${me}&user2=${selectedUser}`
-        );
-
-        const data = await res.json();
-
-        data.forEach(renderMessage);
-
-        smoothScrollBottom();
-
-    } catch (e) {
-        console.log("Load message error", e);
-    }
-}
-
-/* =========================
    RENDER MESSAGE
 ========================= */
 
 function renderMessage(m) {
 
     const box = document.getElementById("messages");
-    if (!box) return;
 
-    const key = m.id || `${m.from}_${m.content}_${m.timestamp}`;
-
-    if (document.getElementById("msg_" + key)) return;
+    const div = document.createElement("div");
 
     const mine = m.from === me;
 
-    const div = document.createElement("div");
-    div.id = "msg_" + key;
     div.className = mine ? "myMsg" : "otherMsg";
 
-    let time = "";
-    if (m.timestamp) {
-        const d = new Date(m.timestamp);
-        time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    let html = "";
+
+    if (m.type === "image") {
+        html = `<img class="chatImage" src="${m.content}" />`;
+    } else {
+        html = `<div>${m.content}</div>`;
     }
 
-    div.innerHTML = `
-        <div>${m.content}</div>
-        <div class="msgTime">${time}</div>
-    `;
+    div.innerHTML = html;
 
     box.appendChild(div);
 }
@@ -443,12 +400,11 @@ function renderMessage(m) {
    SCROLL
 ========================= */
 
-function smoothScrollBottom() {
+function scrollBottom() {
 
     const box = document.getElementById("messages");
-    if (!box) return;
 
     setTimeout(() => {
         box.scrollTop = box.scrollHeight;
-    }, 50);
+    }, 80);
 }
