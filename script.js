@@ -154,11 +154,8 @@ document.addEventListener(
 
 function connectSocket() {
 
-    const socket =
-
-    new SockJS(
-        API_BASE + "/chat"
-    );
+   const socket =
+new SockJS(API_BASE + "/ws");
 
     stompClient =
     Stomp.over(socket);
