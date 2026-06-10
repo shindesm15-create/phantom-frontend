@@ -326,30 +326,40 @@ async function loadMessages() {
    SEND MESSAGE (TEXT + IMAGE)
 ========================= */
 
+
 function send() {
 
+    console.log("SEND FUNCTION CALLED");
+
     const input = document.getElementById("msg");
-    const file = document.getElementById("imageInput");
+    const fileInput = document.getElementById("imageInput");
 
     if (!selectedUser || !connected) return;
 
-    // IMAGE MESSAGE
-    if (file && file.files && file.files.length > 0) {
+    // IMAGE CHECK
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+
+        const file = fileInput.files[0];
+
+        console.log("IMAGE SELECTED:", file);
 
         const reader = new FileReader();
 
         reader.onload = () => {
 
+            console.log("IMAGE LOADED BASE64");
+
             const msg = {
+                id: crypto.randomUUID(),
                 from: me,
                 to: selectedUser,
                 messageType: "IMAGE",
-                content: "",
+                content: null,
                 imageUrl: reader.result,
                 timestamp: Date.now()
             };
 
-            console.log("Sending image:", msg); // 🔥 DEBUG
+            console.log("SENDING IMAGE MSG:", msg);
 
             stompClient.send(
                 "/app/send",
@@ -358,17 +368,24 @@ function send() {
             );
         };
 
-        reader.readAsDataURL(file.files[0]);
-        file.value = "";
+        reader.onerror = () => {
+            console.error("FILE READER ERROR");
+        };
+
+        reader.readAsDataURL(file);
+
+        fileInput.value = "";
         input.value = "";
         return;
     }
 
-    // TEXT MESSAGE
+    // TEXT
     const text = input.value.trim();
+
     if (!text) return;
 
     const msg = {
+        id: crypto.randomUUID(),
         from: me,
         to: selectedUser,
         messageType: "TEXT",
@@ -377,61 +394,11 @@ function send() {
         timestamp: Date.now()
     };
 
+    console.log("SENDING TEXT:", msg);
+
     stompClient.send("/app/send", {}, JSON.stringify(msg));
 
     input.value = "";
-}
-/* =========================
-   SEND SOCKET
-========================= */
-function sendMessage(msg) {
-
-    if (!msg) return;
-
-    // 🔥 ensure ID exists (VERY IMPORTANT for images)
-    if (!msg.id) {
-        msg.id = crypto.randomUUID();
-    }
-
-    // prevent duplicate render
-    if (renderedMessages.has(msg.id)) return;
-
-    renderedMessages.add(msg.id);
-
-    // render locally FIRST
-    renderMessage(msg);
-    scrollBottom();
-
-    // send to backend
-    if (stompClient && connected) {
-        stompClient.send("/app/send", {}, JSON.stringify(msg));
-    } else {
-        console.error("Socket not connected");
-    }
-}
-
-/* =========================
-   INPUT EVENTS
-========================= */
-
-function setupInputEvents() {
-
-    const input = document.getElementById("msg");
-
-    input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") send();
-    });
-
-    input.addEventListener("input", () => {
-
-        sendTyping(true);
-
-        clearTimeout(typingTimeout);
-
-        typingTimeout = setTimeout(() => {
-            sendTyping(false);
-        }, 1000);
-    });
 }
 
 /* =========================
