@@ -73,14 +73,14 @@ window.onload = async () => {
 
 async function setOnline() {
     try {
-        await fetch(API_BASE + "/online?user=" + me, {
+        await fetch(API_BASE + "/api/online?user=" + me, {
             method: "POST"
         });
     } catch (e) {}
 }
 
 function setOffline() {
-    navigator.sendBeacon(API_BASE + "/offline?user=" + me);
+    navigator.sendBeacon(API_BASE + "/api/offline?user=" + me);
 }
 
 window.addEventListener("beforeunload", () => {
@@ -213,7 +213,7 @@ function subscribeTyping() {
 async function loadOnlineUsers() {
 
     try {
-        const res = await fetch(API_BASE + "/online-users");
+        const res = await fetch(API_BASE + "/api/online-users");
         onlineUsers = await res.json();
     } catch (e) {
         onlineUsers = [];
@@ -223,7 +223,7 @@ async function loadOnlineUsers() {
 async function loadUsers() {
 
     try {
-        const res = await fetch(API_BASE + "/users"); // FIXED
+        const res = await fetch(API_BASE + "/api/users"); // FIXED
         const users = await res.json();
 
         const box = document.getElementById("users");
