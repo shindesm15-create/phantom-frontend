@@ -343,11 +343,355 @@ function updateChatStatus() {
 /* =========================
    REQUIRED PLACEHOLDERS
 ========================= */
+/* =========================
+   STATUS
+========================= */
 
-// You already have these in your project
-// (kept here to avoid errors)
 
-function setupInputEvents() {}
-function renderMessage(m) {}
-function smoothScrollBottom() {}
-function loadMessages() {}
+function updateChatStatus() {
+
+    if (!selectedUser)
+        return;
+
+    const online =
+    onlineUsers.includes(
+        selectedUser
+    );
+
+    const statusBox =
+    document.getElementById(
+        "chatStatus"
+    );
+
+    const avatarBox =
+    document.getElementById(
+        "avatarBox"
+    );
+
+    statusBox.innerText =
+        online
+        ? "online"
+        : "offline";
+
+    statusBox.style.color =
+        online
+        ? "#4ade80"
+        : "#888";
+
+    avatarBox.innerText =
+        online
+        ? "💀"
+        : getAvatar(selectedUser);
+
+}
+
+
+/* =========================
+   SEND
+========================= */
+
+function send() {
+
+    const input =
+    document.getElementById(
+        "msg"
+    );
+
+    if (!input)
+        return;
+
+    const content =
+    input.value.trim();
+
+    if (!content)
+        return;
+
+    if (!selectedUser)
+        return;
+
+    if (!connected)
+        return;
+
+    const msg = {
+
+        id:
+        crypto.randomUUID(),
+
+        from: me,
+
+        to: selectedUser,
+
+        content: content,
+
+        timestamp:
+        Date.now()
+    };
+
+    /* SAVE BEFORE SOCKET */
+
+    renderedMessages.add(
+        msg.id
+    );
+
+    /* SHOW LOCAL */
+
+    renderMessage(msg);
+
+    smoothScrollBottom();
+
+    /* SEND */
+
+    stompClient.send(
+
+        "/app/send",
+
+        {},
+
+        JSON.stringify(msg)
+    );
+
+    input.value = "";
+
+    sendTyping(false);
+}
+
+
+/* =========================
+   SEND TYPING
+========================= */
+
+function sendTyping(status) {
+
+    if (
+        !selectedUser ||
+        !connected
+    ) {
+        return;
+    }
+
+    stompClient.send(
+
+        "/app/typing",
+
+        {},
+
+        JSON.stringify({
+
+            from: me,
+
+            to: selectedUser,
+
+            isTyping: status
+        })
+    );
+}
+
+/* =========================
+   INPUT EVENTS
+========================= */
+
+function setupInputEvents() {
+
+    const input =
+
+    document.getElementById(
+        "msg"
+    );
+
+    if (!input)
+        return;
+
+    input.addEventListener(
+
+        "keypress",
+
+        (e) => {
+
+            if (
+                e.key === "Enter"
+            ) {
+
+                send();
+            }
+        }
+    );
+
+    input.addEventListener(
+
+        "input",
+
+        () => {
+
+            sendTyping(true);
+
+            clearTimeout(
+                typingTimeout
+            );
+
+            typingTimeout =
+
+            setTimeout(() => {
+
+                sendTyping(false);
+
+            },1000);
+        }
+    );
+}
+
+/* =========================
+   LOAD MESSAGES
+========================= */
+
+async function loadMessages() {
+
+    try {
+
+        const res = await fetch(
+
+            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+        );
+
+        const data =
+        await res.json();
+
+        data.forEach(m => {
+
+            const key =
+
+                m.id ||
+
+                `${m.from}_${m.content}_${m.timestamp}`;
+
+            if (
+                renderedMessages.has(key)
+            ) {
+                return;
+            }
+
+            renderedMessages.add(key);
+
+            renderMessage(m);
+        });
+
+        smoothScrollBottom();
+
+    } catch(e){
+
+        console.log(
+            "Load message error",
+            e
+        );
+    }
+}
+
+/* =========================
+   RENDER
+========================= */
+
+function renderMessage(m) {
+
+    const box =
+    document.getElementById(
+        "messages"
+    );
+
+    if (!box) return;
+
+    const key =
+        m.id ||
+        `${m.from}_${m.content}_${m.timestamp}`;
+
+    /* PREVENT DUPLICATE HTML */
+
+    if (
+        document.getElementById(
+            "msg_" + key
+        )
+    ) {
+        return;
+    }
+
+    const mine =
+    m.from === me;
+
+    const div =
+    document.createElement(
+        "div"
+    );
+
+    div.id =
+    "msg_" + key;
+
+    div.className =
+        mine
+        ? "myMsg"
+        : "otherMsg";
+
+    let time = "";
+
+    if (m.timestamp) {
+
+        const d =
+        new Date(m.timestamp);
+
+        time =
+            d.getHours() +
+            ":" +
+            String(
+                d.getMinutes()
+            ).padStart(2, "0");
+    }
+
+    div.innerHTML = `
+        <div>${m.content}</div>
+        <div class="msgTime">${time}</div>
+    `;
+
+    box.appendChild(div);
+}
+
+/* =========================
+   SCROLL
+========================= */
+
+function smoothScrollBottom() {
+
+    const box =
+
+    document.getElementById(
+        "messages"
+    );
+
+    if (!box)
+        return;
+
+    setTimeout(() => {
+
+        box.scrollTop =
+        box.scrollHeight;
+
+    },50);
+}
+
+/* =========================
+   AUTO REFRESH
+========================= */
+
+setInterval(
+
+    async () => {
+
+        if (!document.hidden) {
+
+            await loadOnlineUsers();
+
+            await loadUsers();
+
+            updateChatStatus();
+        }
+
+    },
+
+    3000
+);   
