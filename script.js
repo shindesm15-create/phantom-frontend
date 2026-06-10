@@ -1,7 +1,7 @@
 const API_BASE = "https://phantom-backend05-1.onrender.com";
 
 /* =========================
-   USER
+   USER CHECK
 ========================= */
 
 const me = localStorage.getItem("user");
@@ -17,10 +17,10 @@ if (!me) {
 let selectedUser = "";
 let stompClient = null;
 let connected = false;
+
 let typingTimeout = null;
 
 let onlineUsers = [];
-
 const renderedMessages = new Set();
 
 let messageSubscription = null;
@@ -31,7 +31,6 @@ let typingSubscription = null;
 ========================= */
 
 function getAvatar(user) {
-
     const emojiRegex = /\p{Extended_Pictographic}/u;
     const chars = [...user.trim()];
 
@@ -60,11 +59,12 @@ window.onload = async () => {
 
     setupInputEvents();
 
-    // 🔥 auto refresh online users
+    // refresh online users
     setInterval(async () => {
         await loadOnlineUsers();
         await loadUsers();
-    }, 5000);
+        updateChatStatus();
+    }, 3000);
 };
 
 /* =========================
@@ -83,18 +83,13 @@ function setOffline() {
     navigator.sendBeacon(API_BASE + "/api/offline?user=" + me);
 }
 
-window.addEventListener("beforeunload", () => {
-    setOffline();
-});
+window.addEventListener("beforeunload", setOffline);
 
 document.addEventListener("visibilitychange", async () => {
     if (document.hidden) {
         setOffline();
     } else {
         await setOnline();
-        await loadOnlineUsers();
-        await loadUsers();
-        updateChatStatus();
     }
 });
 
@@ -106,7 +101,6 @@ function connectSocket() {
 
     const socket = new SockJS(API_BASE + "/ws");
     stompClient = Stomp.over(socket);
-
     stompClient.debug = null;
 
     stompClient.connect(
@@ -122,7 +116,6 @@ function connectSocket() {
             connected = false;
             console.log("Socket Disconnected");
 
-            // prevent duplicate connections
             if (stompClient) {
                 try {
                     stompClient.disconnect(() => {});
@@ -136,7 +129,7 @@ function connectSocket() {
 }
 
 /* =========================
-   MESSAGES
+   MESSAGE SUBSCRIBE
 ========================= */
 
 function subscribeMessages() {
@@ -153,11 +146,13 @@ function subscribeMessages() {
 
             const m = JSON.parse(msg.body);
 
-            if (m.from === me) return;
-
             if (!selectedUser) return;
 
-            if (m.from !== selectedUser || m.to !== me) return;
+            const valid =
+                (m.from === me && m.to === selectedUser) ||
+                (m.from === selectedUser && m.to === me);
+
+            if (!valid) return;
 
             const key = m.id || `${m.from}_${m.content}_${m.timestamp}`;
 
@@ -211,7 +206,6 @@ function subscribeTyping() {
 ========================= */
 
 async function loadOnlineUsers() {
-
     try {
         const res = await fetch(API_BASE + "/api/online-users");
         onlineUsers = await res.json();
@@ -221,9 +215,8 @@ async function loadOnlineUsers() {
 }
 
 async function loadUsers() {
-
     try {
-        const res = await fetch(API_BASE + "/api/users"); // FIXED
+        const res = await fetch(API_BASE + "/api/users");
         const users = await res.json();
 
         const box = document.getElementById("users");
@@ -244,26 +237,16 @@ async function loadUsers() {
 
             div.innerHTML = `
                 <div class="userRow">
-
                     <div class="snapAvatar">
                         ${online ? "💀" : getAvatar(user)}
                     </div>
 
                     <div>
-
-                        <div class="userName">
-                            ${user}
-                        </div>
-
-                        <div class="userStatus"
-                             style="color:${online ? '#4ade80' : '#888'}">
-
+                        <div class="userName">${user}</div>
+                        <div class="userStatus" style="color:${online ? '#4ade80' : '#888'}">
                             ${online ? 'online' : 'offline'}
-
                         </div>
-
                     </div>
-
                 </div>
             `;
 
@@ -276,7 +259,7 @@ async function loadUsers() {
 }
 
 /* =========================
-   CHAT OPEN
+   OPEN CHAT
 ========================= */
 
 async function openChat(user) {
@@ -288,29 +271,19 @@ async function openChat(user) {
     const chatWith = document.getElementById("chatWith");
     if (chatWith) chatWith.innerText = user;
 
-    const messagesBox = document.getElementById("messages");
-    if (messagesBox) messagesBox.innerHTML = "";
+    const box = document.getElementById("messages");
+    if (box) box.innerHTML = "";
 
     updateChatStatus();
 
     await loadMessages();
-
-    if (window.innerWidth <= 700) {
-
-        document.querySelector(".sidebar").style.display = "none";
-
-        const chat = document.querySelector(".chat");
-        chat.style.display = "flex";
-        chat.classList.add("active");
-    }
 }
 
 /* =========================
-   CHAT CLOSE
+   CLOSE CHAT
 ========================= */
 
 function closeChat() {
-
     if (window.innerWidth <= 700) {
         document.querySelector(".chat").style.display = "none";
         document.querySelector(".sidebar").style.display = "block";
@@ -341,149 +314,49 @@ function updateChatStatus() {
 }
 
 /* =========================
-   REQUIRED PLACEHOLDERS
-========================= */
-/* =========================
-   STATUS
-========================= */
-
-
-function updateChatStatus() {
-
-    if (!selectedUser)
-        return;
-
-    const online =
-    onlineUsers.includes(
-        selectedUser
-    );
-
-    const statusBox =
-    document.getElementById(
-        "chatStatus"
-    );
-
-    const avatarBox =
-    document.getElementById(
-        "avatarBox"
-    );
-
-    statusBox.innerText =
-        online
-        ? "online"
-        : "offline";
-
-    statusBox.style.color =
-        online
-        ? "#4ade80"
-        : "#888";
-
-    avatarBox.innerText =
-        online
-        ? "💀"
-        : getAvatar(selectedUser);
-
-}
-
-
-/* =========================
-   SEND
+   SEND MESSAGE
 ========================= */
 
 function send() {
 
-    const input =
-    document.getElementById(
-        "msg"
-    );
+    const input = document.getElementById("msg");
+    if (!input) return;
 
-    if (!input)
-        return;
-
-    const content =
-    input.value.trim();
-
-    if (!content)
-        return;
-
-    if (!selectedUser)
-        return;
-
-    if (!connected)
-        return;
+    const content = input.value.trim();
+    if (!content || !selectedUser || !connected) return;
 
     const msg = {
-
-        id:
-        crypto.randomUUID(),
-
+        id: crypto.randomUUID(),
         from: me,
-
         to: selectedUser,
-
-        content: content,
-
-        timestamp:
-        Date.now()
+        content,
+        timestamp: Date.now()
     };
 
-    /* SAVE BEFORE SOCKET */
-
-    renderedMessages.add(
-        msg.id
-    );
-
-    /* SHOW LOCAL */
+    renderedMessages.add(msg.id);
 
     renderMessage(msg);
-
     smoothScrollBottom();
 
-    /* SEND */
-
-    stompClient.send(
-
-        "/app/send",
-
-        {},
-
-        JSON.stringify(msg)
-    );
+    stompClient.send("/app/send", {}, JSON.stringify(msg));
 
     input.value = "";
-
     sendTyping(false);
 }
 
-
 /* =========================
-   SEND TYPING
+   TYPING SEND
 ========================= */
 
 function sendTyping(status) {
 
-    if (
-        !selectedUser ||
-        !connected
-    ) {
-        return;
-    }
+    if (!selectedUser || !connected) return;
 
-    stompClient.send(
-
-        "/app/typing",
-
-        {},
-
-        JSON.stringify({
-
-            from: me,
-
-            to: selectedUser,
-
-            isTyping: status
-        })
-    );
+    stompClient.send("/app/typing", {}, JSON.stringify({
+        from: me,
+        to: selectedUser,
+        isTyping: status
+    }));
 }
 
 /* =========================
@@ -492,51 +365,23 @@ function sendTyping(status) {
 
 function setupInputEvents() {
 
-    const input =
+    const input = document.getElementById("msg");
+    if (!input) return;
 
-    document.getElementById(
-        "msg"
-    );
+    input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") send();
+    });
 
-    if (!input)
-        return;
+    input.addEventListener("input", () => {
 
-    input.addEventListener(
+        sendTyping(true);
 
-        "keypress",
+        clearTimeout(typingTimeout);
 
-        (e) => {
-
-            if (
-                e.key === "Enter"
-            ) {
-
-                send();
-            }
-        }
-    );
-
-    input.addEventListener(
-
-        "input",
-
-        () => {
-
-            sendTyping(true);
-
-            clearTimeout(
-                typingTimeout
-            );
-
-            typingTimeout =
-
-            setTimeout(() => {
-
-                sendTyping(false);
-
-            },1000);
-        }
-    );
+        typingTimeout = setTimeout(() => {
+            sendTyping(false);
+        }, 1000);
+    });
 }
 
 /* =========================
@@ -546,101 +391,44 @@ function setupInputEvents() {
 async function loadMessages() {
 
     try {
-
         const res = await fetch(
-
-            `${API_BASE}/messages?user1=${me}&user2=${selectedUser}`
+            `${API_BASE}/api/messages?user1=${me}&user2=${selectedUser}`
         );
 
-        const data =
-        await res.json();
+        const data = await res.json();
 
-        data.forEach(m => {
-
-            const key =
-
-                m.id ||
-
-                `${m.from}_${m.content}_${m.timestamp}`;
-
-            if (
-                renderedMessages.has(key)
-            ) {
-                return;
-            }
-
-            renderedMessages.add(key);
-
-            renderMessage(m);
-        });
+        data.forEach(renderMessage);
 
         smoothScrollBottom();
 
-    } catch(e){
-
-        console.log(
-            "Load message error",
-            e
-        );
+    } catch (e) {
+        console.log("Load message error", e);
     }
 }
 
 /* =========================
-   RENDER
+   RENDER MESSAGE
 ========================= */
 
 function renderMessage(m) {
 
-    const box =
-    document.getElementById(
-        "messages"
-    );
-
+    const box = document.getElementById("messages");
     if (!box) return;
 
-    const key =
-        m.id ||
-        `${m.from}_${m.content}_${m.timestamp}`;
+    const key = m.id || `${m.from}_${m.content}_${m.timestamp}`;
 
-    /* PREVENT DUPLICATE HTML */
+    if (document.getElementById("msg_" + key)) return;
 
-    if (
-        document.getElementById(
-            "msg_" + key
-        )
-    ) {
-        return;
-    }
+    const mine = m.from === me;
 
-    const mine =
-    m.from === me;
-
-    const div =
-    document.createElement(
-        "div"
-    );
-
-    div.id =
-    "msg_" + key;
-
-    div.className =
-        mine
-        ? "myMsg"
-        : "otherMsg";
+    const div = document.createElement("div");
+    div.id = "msg_" + key;
+    div.className = mine ? "myMsg" : "otherMsg";
 
     let time = "";
-
     if (m.timestamp) {
-
-        const d =
-        new Date(m.timestamp);
-
-        time =
-            d.getHours() +
-            ":" +
-            String(
-                d.getMinutes()
-            ).padStart(2, "0");
+        const d = new Date(m.timestamp);
+        time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
 
     div.innerHTML = `
@@ -657,41 +445,10 @@ function renderMessage(m) {
 
 function smoothScrollBottom() {
 
-    const box =
-
-    document.getElementById(
-        "messages"
-    );
-
-    if (!box)
-        return;
+    const box = document.getElementById("messages");
+    if (!box) return;
 
     setTimeout(() => {
-
-        box.scrollTop =
-        box.scrollHeight;
-
-    },50);
+        box.scrollTop = box.scrollHeight;
+    }, 50);
 }
-
-/* =========================
-   AUTO REFRESH
-========================= */
-
-setInterval(
-
-    async () => {
-
-        if (!document.hidden) {
-
-            await loadOnlineUsers();
-
-            await loadUsers();
-
-            updateChatStatus();
-        }
-
-    },
-
-    3000
-);   
