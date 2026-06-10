@@ -322,7 +322,7 @@ async function loadUsers() {
 try {
 
     const res =
-    await fetch(API_BASE + "auth/users");
+    await fetch(API_BASE + "/auth/users");
 
     const users =
     await res.json();
