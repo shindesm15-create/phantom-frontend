@@ -69,17 +69,27 @@ window.onload = async () => {
 
 async function setOnline() {
     try {
-        await fetch(API_BASE + "/api/online?user=" + me, {
-            method: "POST"
-        });
+        await fetch(API_BASE + "/online?user=" + me, { method: "POST" });
     } catch (e) {}
 }
 
 function setOffline() {
-    navigator.sendBeacon(API_BASE + "/api/offline?user=" + me);
+    navigator.sendBeacon(API_BASE + "/offline?user=" + me);
 }
 
 window.addEventListener("beforeunload", setOffline);
+
+document.addEventListener("visibilitychange", async () => {
+
+    if (document.hidden) {
+        setOffline();
+    } else {
+        await setOnline();
+        await loadOnlineUsers();
+        await loadUsers();
+        updateChatStatus();
+    }
+});
 
 /* =========================
    SOCKET
@@ -215,7 +225,7 @@ async function loadUsers() {
 async function loadOnlineUsers() {
 
     try {
-        const res = await fetch(API_BASE + "/api/online-users");
+        const res = await fetch(API_BASE + "/online-users");
         onlineUsers = await res.json();
     } catch (e) {
         onlineUsers = [];
@@ -323,44 +333,51 @@ function send() {
 
     if (!selectedUser || !connected) return;
 
-    // IMAGE
-    if (file.files.length > 0) {
+    // IMAGE MESSAGE
+    if (file.files && file.files.length > 0) {
 
         const reader = new FileReader();
 
         reader.onload = () => {
 
-            sendMessage({
+            const msg = {
                 id: crypto.randomUUID(),
                 from: me,
                 to: selectedUser,
                 type: "image",
                 content: reader.result,
                 timestamp: Date.now()
-            });
+            };
+
+            sendMessage(msg);
         };
 
         reader.readAsDataURL(file.files[0]);
+
+        // IMPORTANT CLEANUP
         file.value = "";
+        input.value = "";
         return;
     }
 
-    // TEXT
+    // TEXT MESSAGE
     const text = input.value.trim();
+
     if (!text) return;
 
-    sendMessage({
+    const msg = {
         id: crypto.randomUUID(),
         from: me,
         to: selectedUser,
         type: "text",
         content: text,
         timestamp: Date.now()
-    });
+    };
+
+    sendMessage(msg);
 
     input.value = "";
 }
-
 /* =========================
    SEND SOCKET
 ========================= */
@@ -417,8 +434,9 @@ function sendTyping(status) {
 /* =========================
    RENDER MESSAGE (FIX TIME)
 ========================= */
-
 function renderMessage(m) {
+
+    if (!m || !m.content) return; // 🔥 FIX NULL MESSAGE BUG
 
     const box = document.getElementById("messages");
 
@@ -432,26 +450,23 @@ function renderMessage(m) {
 
     if (m.timestamp) {
         const d = new Date(m.timestamp);
-        const h = d.getHours();
-        const min = String(d.getMinutes()).padStart(2, "0");
-        time = `${h}:${min}`;
+        time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
     }
 
-    let content = "";
-
     if (m.type === "image") {
-        content = `
+
+        div.innerHTML = `
             <img class="chatImage" src="${m.content}" />
             <div class="msgTime">${time}</div>
         `;
+
     } else {
-        content = `
+
+        div.innerHTML = `
             <div>${m.content}</div>
             <div class="msgTime">${time}</div>
         `;
     }
-
-    div.innerHTML = content;
 
     box.appendChild(div);
 }
