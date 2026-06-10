@@ -333,8 +333,8 @@ function send() {
 
     if (!selectedUser || !connected) return;
 
-    // IMAGE
-    if (file.files.length > 0) {
+    // IMAGE MESSAGE
+    if (file && file.files && file.files.length > 0) {
 
         const reader = new FileReader();
 
@@ -344,46 +344,70 @@ function send() {
                 from: me,
                 to: selectedUser,
                 messageType: "IMAGE",
-                content: null,
-                imageUrl: reader.result,   // ✔ IMPORTANT
+                content: "",
+                imageUrl: reader.result,
                 timestamp: Date.now()
             };
 
-            stompClient.send("/app/send", {}, JSON.stringify(msg));
+            console.log("Sending image:", msg); // 🔥 DEBUG
+
+            stompClient.send(
+                "/app/send",
+                {},
+                JSON.stringify(msg)
+            );
         };
 
         reader.readAsDataURL(file.files[0]);
         file.value = "";
+        input.value = "";
         return;
     }
 
-    // TEXT
+    // TEXT MESSAGE
     const text = input.value.trim();
     if (!text) return;
 
-    stompClient.send("/app/send", {}, JSON.stringify({
+    const msg = {
         from: me,
         to: selectedUser,
         messageType: "TEXT",
         content: text,
         imageUrl: null,
         timestamp: Date.now()
-    }));
+    };
+
+    stompClient.send("/app/send", {}, JSON.stringify(msg));
 
     input.value = "";
 }
 /* =========================
    SEND SOCKET
 ========================= */
-
 function sendMessage(msg) {
+
+    if (!msg) return;
+
+    // 🔥 ensure ID exists (VERY IMPORTANT for images)
+    if (!msg.id) {
+        msg.id = crypto.randomUUID();
+    }
+
+    // prevent duplicate render
+    if (renderedMessages.has(msg.id)) return;
 
     renderedMessages.add(msg.id);
 
+    // render locally FIRST
     renderMessage(msg);
     scrollBottom();
 
-    stompClient.send("/app/send", {}, JSON.stringify(msg));
+    // send to backend
+    if (stompClient && connected) {
+        stompClient.send("/app/send", {}, JSON.stringify(msg));
+    } else {
+        console.error("Socket not connected");
+    }
 }
 
 /* =========================
@@ -447,11 +471,13 @@ function renderMessage(m) {
         time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
     }
 
-    // IMAGE MESSAGE
-    if (m.messageType === "IMAGE" && m.imageUrl) {
+    // IMAGE
+    if (m.messageType === "IMAGE") {
+
+        const img = m.imageUrl || "";
 
         div.innerHTML = `
-            <img class="chatImage" src="${m.imageUrl}" />
+            <img class="chatImage" src="${img}" />
             <div class="msgTime">${time}</div>
         `;
 
