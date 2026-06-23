@@ -333,57 +333,50 @@ async function loadMessages() {
 
 function send() {
 
-    console.log("SEND FUNCTION CALLED");
-
     const input = document.getElementById("msg");
     const fileInput = document.getElementById("imageInput");
 
     if (!selectedUser || !connected) return;
 
-    // IMAGE CHECK
-    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    // IMAGE MESSAGE
+    if (fileInput.files.length > 0) {
 
         const file = fileInput.files[0];
-
-        console.log("IMAGE SELECTED:", file);
 
         const reader = new FileReader();
 
         reader.onload = () => {
-
-            console.log("IMAGE LOADED BASE64");
 
             const msg = {
                 id: crypto.randomUUID(),
                 from: me,
                 to: selectedUser,
                 messageType: "IMAGE",
-                content: null,
                 imageUrl: reader.result,
-                timestamp: Date.now()
-            };
+                content: null,
+                timestamp: Date.now(),
 
-            console.log("SENDING IMAGE MSG:", msg);
+                replyContent: replyTarget
+                    ? (replyTarget.content || "📷 Image")
+                    : null
+            };
 
             stompClient.send(
                 "/app/send",
                 {},
                 JSON.stringify(msg)
             );
-        };
 
-        reader.onerror = () => {
-            console.error("FILE READER ERROR");
+            cancelReply();
         };
 
         reader.readAsDataURL(file);
 
         fileInput.value = "";
-        input.value = "";
         return;
     }
 
-    // TEXT
+    // TEXT MESSAGE
     const text = input.value.trim();
 
     if (!text) return;
@@ -395,14 +388,22 @@ function send() {
         messageType: "TEXT",
         content: text,
         imageUrl: null,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+
+        replyContent: replyTarget
+            ? (replyTarget.content || "📷 Image")
+            : null
     };
 
-    console.log("SENDING TEXT:", msg);
-
-    stompClient.send("/app/send", {}, JSON.stringify(msg));
+    stompClient.send(
+        "/app/send",
+        {},
+        JSON.stringify(msg)
+    );
 
     input.value = "";
+
+    cancelReply();
 }
 
 /* =========================
@@ -424,98 +425,105 @@ function sendTyping(status) {
    RENDER MESSAGE (FIX TIME)*/
 function renderMessage(m) {
 
-if (!m) return;
+    if (!m) return;
 
-const box = document.getElementById("messages");
+    const box = document.getElementById("messages");
 
-const div = document.createElement("div");
+    const div = document.createElement("div");
 
-const mine = m.from === me;
+    const mine = m.from === me;
 
-div.className = mine ? "myMsg" : "otherMsg";
+    div.className = mine ? "myMsg" : "otherMsg";
 
-let time = "";
+    let time = "";
 
-if (m.timestamp) {
+    if (m.timestamp) {
 
-    const d = new Date(m.timestamp);
+        const d = new Date(m.timestamp);
 
-    time =
-        d.getHours() + ":" +
-        String(d.getMinutes()).padStart(2,"0");
-}
+        time =
+            d.getHours() +
+            ":" +
+            String(d.getMinutes()).padStart(2, "0");
+    }
 
-let replyHtml = "";
+    let replyHtml = "";
 
-if (m.replyContent) {
+    if (m.replyContent) {
 
-    replyHtml = `
-        <div class="replyPreview">
-            ${m.replyContent}
-        </div>
-    `;
-}
+        replyHtml = `
+            <div class="replyPreview">
+                ${m.replyContent}
+            </div>
+        `;
+    }
 
-let reactionHtml = "";
+    if (m.messageType === "IMAGE") {
 
-if (m.reaction) {
+        div.innerHTML = `
+            ${replyHtml}
 
-    reactionHtml = `
-        <div class="reaction">
-            ${m.reaction}
-        </div>
-    `;
-}
+            <img
+                class="chatImage"
+                src="${m.imageUrl || ''}"
+                onclick="window.open('${m.imageUrl}','_blank')"
+            >
 
-let savedHtml = m.saved
-    ? " ⭐"
-    : "";
+            <div class="msgTime">
+                ${time}
+            </div>
+        `;
 
-if (m.messageType === "IMAGE") {
+    } else {
 
-    div.innerHTML = `
-        ${replyHtml}
+        div.innerHTML = `
+            ${replyHtml}
 
-        <img
-            class="chatImage"
-            src="${m.imageUrl || ''}"
-        >
+            <div>
+                ${m.content || ""}
+            </div>
 
-        ${reactionHtml}
+            <div class="msgTime">
+                ${time}
+            </div>
+        `;
+    }
 
-        <div class="msgTime">
-            ${time}${savedHtml}
-        </div>
-    `;
+    // Desktop right click
+    div.addEventListener("contextmenu",(e)=>{
 
-} else {
+        e.preventDefault();
 
-    div.innerHTML = `
-        ${replyHtml}
+        openActionBar(m,e);
+    });
 
-        <div>
-            ${m.content || ""}
-        </div>
+    // Mobile long press
+    let pressTimer;
 
-        ${reactionHtml}
+    div.addEventListener("touchstart",(e)=>{
 
-        <div class="msgTime">
-            ${time}${savedHtml}
-        </div>
-    `;
-}
+        pressTimer = setTimeout(()=>{
 
-div.addEventListener("contextmenu",(e)=>{
+            openActionBar(
+                m,
+                {
+                    pageX:e.touches[0].pageX,
+                    pageY:e.touches[0].pageY
+                }
+            );
 
-    e.preventDefault();
+        },500);
 
-    openActionBar(m,e);
-});
+    });
 
-box.appendChild(div);
+    div.addEventListener("touchend",()=>{
 
-box.scrollTop = box.scrollHeight;
+        clearTimeout(pressTimer);
+    });
 
+    box.appendChild(div);
+
+    box.scrollTop = box.scrollHeight;
 }
 /* =========================
    SCROLL FIX
@@ -533,6 +541,8 @@ function scrollBottom() {
 
 /* Open Action Menu */
 
+
+
 function openActionBar(message,event){
 
 selectedMessage = message;
@@ -546,31 +556,18 @@ bar.style.top = event.pageY + "px";
 
 }
 
-/* Close Menu */
-
-document.addEventListener("click",(e)=>{
-
-if(!e.target.closest("#actionBar")){
-
-    document.getElementById("actionBar").style.display="none";
-}
-
-});
-
-/* Reply */
-
 function replyMessage(){
 
 if(!selectedMessage) return;
 
 replyTarget = selectedMessage;
 
-document.getElementById("replyBox").style.display="block";
+document.getElementById("replyBox").style.display = "block";
 
 document.getElementById("replyText").innerText =
-    selectedMessage.text || "Image";
+    selectedMessage.content || "📷 Image";
 
-document.getElementById("actionBar").style.display="none";
+document.getElementById("actionBar").style.display = "none";
 
 }
 
@@ -578,70 +575,38 @@ function cancelReply(){
 
 replyTarget = null;
 
-document.getElementById("replyBox").style.display="none";
+document.getElementById("replyBox").style.display = "none";
+
+document.getElementById("replyText").innerText = "";
 
 }
-
-/* Save */
-
-function saveMessage(){
-
-if(!selectedMessage) return;
-
-selectedMessage.saved = true;
-
-renderMessages();
-
-document.getElementById("actionBar").style.display="none";
-
-}
-
-/* Delete */
-
-function deleteMessage(){
-
-if(!selectedMessage) return;
-
-if(selectedMessage.saved){
-
-    alert("Saved messages cannot be deleted");
-    return;
-}
-
-messages = messages.filter(
-    m => m.id !== selectedMessage.id
-);
-
-renderMessages();
-
-document.getElementById("actionBar").style.display="none";
-
-}
-
-/* Copy */
 
 function copyMessage(){
 
 if(!selectedMessage) return;
 
 navigator.clipboard.writeText(
-    selectedMessage.text || ""
+    selectedMessage.content || ""
 );
 
-document.getElementById("actionBar").style.display="none";
+document.getElementById("actionBar").style.display = "none";
 
 }
 
-/* React */
+function saveMessage(){
+
+alert("Requires backend support");
+
+}
+
+function deleteMessage(){
+
+alert("Requires backend support");
+
+}
 
 function reactMessage(emoji){
 
-if(!selectedMessage) return;
-
-selectedMessage.reaction = emoji;
-
-renderMessages();
-
-document.getElementById("actionBar").style.display="none";
+alert("Requires backend support");
 
 }
