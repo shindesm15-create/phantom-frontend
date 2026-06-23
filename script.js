@@ -26,6 +26,10 @@ const renderedMessages = new Set();
 let messageSub = null;
 let typingSub = null;
 
+let selectedMessage = null;
+let replyTarget = null;
+
+
 /* =========================
    AVATAR FIX (IMPORTANT)
 ========================= */
@@ -417,46 +421,101 @@ function sendTyping(status) {
 }
 
 /* =========================
-   RENDER MESSAGE (FIX TIME)
-========================= */
+   RENDER MESSAGE (FIX TIME)*/
 function renderMessage(m) {
 
-    if (!m) return;
+if (!m) return;
 
-    const box = document.getElementById("messages");
+const box = document.getElementById("messages");
 
-    const div = document.createElement("div");
+const div = document.createElement("div");
 
-    const mine = m.from === me;
+const mine = m.from === me;
 
-    div.className = mine ? "myMsg" : "otherMsg";
+div.className = mine ? "myMsg" : "otherMsg";
 
-    let time = "";
+let time = "";
 
-    if (m.timestamp) {
-        const d = new Date(m.timestamp);
-        time = `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
-    }
+if (m.timestamp) {
 
-    // IMAGE
-    if (m.messageType === "IMAGE") {
+    const d = new Date(m.timestamp);
 
-        const img = m.imageUrl || "";
+    time =
+        d.getHours() + ":" +
+        String(d.getMinutes()).padStart(2,"0");
+}
 
-        div.innerHTML = `
-            <img class="chatImage" src="${img}" />
-            <div class="msgTime">${time}</div>
-        `;
+let replyHtml = "";
 
-    } else {
+if (m.replyContent) {
 
-        div.innerHTML = `
-            <div>${m.content || ""}</div>
-            <div class="msgTime">${time}</div>
-        `;
-    }
+    replyHtml = `
+        <div class="replyPreview">
+            ${m.replyContent}
+        </div>
+    `;
+}
 
-    box.appendChild(div);
+let reactionHtml = "";
+
+if (m.reaction) {
+
+    reactionHtml = `
+        <div class="reaction">
+            ${m.reaction}
+        </div>
+    `;
+}
+
+let savedHtml = m.saved
+    ? " ⭐"
+    : "";
+
+if (m.messageType === "IMAGE") {
+
+    div.innerHTML = `
+        ${replyHtml}
+
+        <img
+            class="chatImage"
+            src="${m.imageUrl || ''}"
+        >
+
+        ${reactionHtml}
+
+        <div class="msgTime">
+            ${time}${savedHtml}
+        </div>
+    `;
+
+} else {
+
+    div.innerHTML = `
+        ${replyHtml}
+
+        <div>
+            ${m.content || ""}
+        </div>
+
+        ${reactionHtml}
+
+        <div class="msgTime">
+            ${time}${savedHtml}
+        </div>
+    `;
+}
+
+div.addEventListener("contextmenu",(e)=>{
+
+    e.preventDefault();
+
+    openActionBar(m,e);
+});
+
+box.appendChild(div);
+
+box.scrollTop = box.scrollHeight;
+
 }
 /* =========================
    SCROLL FIX
@@ -469,4 +528,120 @@ function scrollBottom() {
     setTimeout(() => {
         box.scrollTop = box.scrollHeight;
     }, 80);
+}
+
+
+/* Open Action Menu */
+
+function openActionBar(message,event){
+
+selectedMessage = message;
+
+const bar = document.getElementById("actionBar");
+
+bar.style.display = "block";
+
+bar.style.left = event.pageX + "px";
+bar.style.top = event.pageY + "px";
+
+}
+
+/* Close Menu */
+
+document.addEventListener("click",(e)=>{
+
+if(!e.target.closest("#actionBar")){
+
+    document.getElementById("actionBar").style.display="none";
+}
+
+});
+
+/* Reply */
+
+function replyMessage(){
+
+if(!selectedMessage) return;
+
+replyTarget = selectedMessage;
+
+document.getElementById("replyBox").style.display="block";
+
+document.getElementById("replyText").innerText =
+    selectedMessage.text || "Image";
+
+document.getElementById("actionBar").style.display="none";
+
+}
+
+function cancelReply(){
+
+replyTarget = null;
+
+document.getElementById("replyBox").style.display="none";
+
+}
+
+/* Save */
+
+function saveMessage(){
+
+if(!selectedMessage) return;
+
+selectedMessage.saved = true;
+
+renderMessages();
+
+document.getElementById("actionBar").style.display="none";
+
+}
+
+/* Delete */
+
+function deleteMessage(){
+
+if(!selectedMessage) return;
+
+if(selectedMessage.saved){
+
+    alert("Saved messages cannot be deleted");
+    return;
+}
+
+messages = messages.filter(
+    m => m.id !== selectedMessage.id
+);
+
+renderMessages();
+
+document.getElementById("actionBar").style.display="none";
+
+}
+
+/* Copy */
+
+function copyMessage(){
+
+if(!selectedMessage) return;
+
+navigator.clipboard.writeText(
+    selectedMessage.text || ""
+);
+
+document.getElementById("actionBar").style.display="none";
+
+}
+
+/* React */
+
+function reactMessage(emoji){
+
+if(!selectedMessage) return;
+
+selectedMessage.reaction = emoji;
+
+renderMessages();
+
+document.getElementById("actionBar").style.display="none";
+
 }
