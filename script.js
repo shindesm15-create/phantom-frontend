@@ -354,7 +354,7 @@ function send() {
                 messageType: "IMAGE",
                 imageUrl: reader.result,
                 content: null,
-                timestamp: Date.now(),
+                timestamp: null,
 
                 replyContent: replyTarget
                     ? (replyTarget.content || "📷 Image")
